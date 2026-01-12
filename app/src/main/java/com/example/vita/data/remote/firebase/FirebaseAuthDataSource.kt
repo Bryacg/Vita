@@ -13,6 +13,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -26,7 +27,6 @@ class FirebaseAuthDataSource @Inject constructor(
     private val auth: FirebaseAuth,
     private val credentialManager: CredentialManager
 ) {
-    // ✅ Usa el Web Client ID (tipo 3) del google-services.json
     private val WEB_CLIENT_ID =
         "1069088296554-jspcbmv26iqiqcfrn0bf2d42uvlaode5.apps.googleusercontent.com"
 
@@ -54,9 +54,24 @@ class FirebaseAuthDataSource @Inject constructor(
     suspend fun register(user: User, password: String): Result<User> {
         return try {
             val result = auth.createUserWithEmailAndPassword(user.email, password).await()
-            val firebaseUser = result.user?.toDomain()
+
+            val uid = result.user?.uid
                 ?: return Result.failure(Exception("Error al crear el usuario"))
-            Result.success(firebaseUser)
+
+            // ✅ Guarda el nombre real en Firebase Auth.
+            // Sin esto displayName queda null y ObtenerSesionUseCase
+            // termina guardando "Usuario Vita" en Room en lugar del
+            // nombre que el usuario escribió en el formulario.
+            val profileUpdates = UserProfileChangeRequest.Builder()
+                .setDisplayName("${user.name} ${user.lastName}".trim())
+                .build()
+            result.user?.updateProfile(profileUpdates)?.await()
+
+            // ✅ Devuelve el User construido desde los datos del formulario
+            // (no desde toDomain()) para evitar problemas con la caché
+            // de Firebase que podría no reflejar el displayName aún.
+            Result.success(user.copy(idUsuario = uid))
+
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -67,9 +82,9 @@ class FirebaseAuthDataSource @Inject constructor(
     suspend fun signInWithGoogle(context: Context): Result<User> {
         return try {
             val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false) // ✅ false = permite cuentas nuevas
+                .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(WEB_CLIENT_ID)
-                .setAutoSelectEnabled(false)          // ✅ false = muestra selector siempre
+                .setAutoSelectEnabled(false)
                 .build()
 
             val request = GetCredentialRequest.Builder()
@@ -79,32 +94,21 @@ class FirebaseAuthDataSource @Inject constructor(
             val result = credentialManager.getCredential(context, request)
             val credential = result.credential
 
-            // ✅ Maneja AMBOS tipos que puede devolver Credential Manager
             val idToken: String = when {
-                // Caso 1: Credential Manager devuelve GoogleIdTokenCredential directamente
-                credential is GoogleIdTokenCredential -> {
-                    credential.idToken
-                }
+                credential is GoogleIdTokenCredential -> credential.idToken
 
-                // Caso 2: En Android 14+ o ciertos dispositivos viene como CustomCredential
-                // Este era el bug — el código anterior solo manejaba el Caso 1
                 credential is CustomCredential &&
-                        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL -> {
+                        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
                     GoogleIdTokenCredential.createFrom(credential.data).idToken
-                }
 
-                // Caso 3: Tipo no reconocido — informamos el tipo real para debug
-                else -> {
-                    return Result.failure(
-                        Exception(
-                            "Tipo de credencial no soportado: ${credential.type}. " +
-                                    "Verifica la configuración de SHA-1 en Firebase Console."
-                        )
+                else -> return Result.failure(
+                    Exception(
+                        "Tipo de credencial no soportado: ${credential.type}. " +
+                                "Verifica la configuración de SHA-1 en Firebase Console."
                     )
-                }
+                )
             }
 
-            // Con el idToken ya extraído, autenticamos en Firebase
             val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
             val authResult = auth.signInWithCredential(firebaseCredential).await()
             val user = authResult.user?.toDomain()
@@ -113,16 +117,15 @@ class FirebaseAuthDataSource @Inject constructor(
             Result.success(user)
 
         } catch (e: NoCredentialException) {
-            // El usuario no tiene cuentas Google configuradas en el dispositivo
             Result.failure(
-                Exception("No hay cuentas de Google disponibles en este dispositivo. " +
-                        "Agrega una cuenta en Ajustes → Cuentas.")
+                Exception(
+                    "No hay cuentas de Google disponibles en este dispositivo. " +
+                            "Agrega una cuenta en Ajustes → Cuentas."
+                )
             )
         } catch (e: GetCredentialCancellationException) {
-            // El usuario cerró el selector sin elegir cuenta
             Result.failure(Exception("Inicio de sesión cancelado"))
         } catch (e: GetCredentialException) {
-            // Error general del Credential Manager (incluye SHA-1 incorrecto)
             Result.failure(
                 Exception(
                     "Error de Google Sign-In: ${e.message}. " +

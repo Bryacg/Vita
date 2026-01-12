@@ -16,7 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class CreateAccountViewModel @Inject constructor(
     private val registerUseCase: RegisterUserUseCase,
-    private val obtenerSesionUseCase: ObtenerSesionUseCase  // salva user en Room
+    private val obtenerSesionUseCase: ObtenerSesionUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateAccountUiState())
@@ -26,22 +26,25 @@ class CreateAccountViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            val userToRegister = User(
-                idUsuario    = "",
+            // El User contiene el nombre real del formulario
+            val userDelFormulario = User(
+                idUsuario    = "",   // Firebase asigna el UID real
                 email        = email,
-                name         = name,
-                lastName     = lastName,
+                name         = name.trim(),
+                lastName     = lastName.trim(),
                 currentLevel = 1,
                 currentXp    = 0
             )
 
-            registerUseCase(userToRegister, password).fold(
-                onSuccess = {
-                    // Crítico: guarda UserEntity en Room ANTES de que
-                    // HomeViewModel intente insertar registros relacionados.
-                    // Esto evita el FK constraint (SQLITE error 787).
+            registerUseCase(userDelFormulario, password).fold(
+                onSuccess = { usuarioRegistrado ->
+                    // usuarioRegistrado ya tiene el UID real y el nombre del formulario
                     try {
-                        val sesion = obtenerSesionUseCase()
+                        // ✅ Pasamos el User con el nombre real al UseCase.
+                        // ObtenerSesionUseCase lo guarda en Room directamente
+                        // sin depender del displayName de Firebase.
+                        val sesion = obtenerSesionUseCase(usuarioRegistrado)
+
                         _uiState.update {
                             it.copy(
                                 isLoading        = false,
@@ -70,11 +73,11 @@ class CreateAccountViewModel @Inject constructor(
     }
 
     private fun mensajeDeError(raw: String?): String = when {
-        raw == null                          -> "Error desconocido"
-        raw.contains("email")                -> "Ese correo ya está registrado"
-        raw.contains("password")             -> "La contraseña debe tener al menos 6 caracteres"
-        raw.contains("network")              -> "Sin conexión a internet"
-        else                                 -> "Error al crear la cuenta"
+        raw == null                 -> "Error desconocido"
+        raw.contains("email")       -> "Ese correo ya está registrado"
+        raw.contains("password")    -> "La contraseña debe tener al menos 6 caracteres"
+        raw.contains("network")     -> "Sin conexión a internet"
+        else                        -> "Error al crear la cuenta"
     }
 }
 
