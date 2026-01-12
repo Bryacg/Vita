@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+---
+##Gamificacion de habitos Saludable
+estamos desarrollando una app de salud alimenticia gamificada e intengrando un chatbot donde tendra un login y crear cuenta ademas que se podra iniciar sesion con firebase y con google una vez iniciadop secion podra moverse solo en estas pantallas: Home, Retos, Juegos, Progreso,Perfil 
+la app tendra un topAppBar donde se vera el nombre de la aplicacion y un bottonBar donde se podran navegar: Home, Retos, Juegos, Progreso,Perfil 
+la app tendra un botton floating donde se abrira el chatbot que tendra en cuenta su peso edad y alergia para al momento de preguntar por un alimento de salud  le mande una recomendacion
+Home:Tendra una car donde se vera su exp su barra de progreso en forma circular y su nivel, tambien terndra otras card al darle tap lo mandara a la seccion de retos o a la de juegos
+Retos: saldran retos semanales o diarios cada reto estara en una card  donde se ve el nombre, la desscripcion, y tendra un boton de comenzar al momento de darle tap a un reto este  se podra ver nombre del reto cuanta exp da  si es diario o semanal y el tiempo que le queda si es que ha iniciado el reto y que cada reto completado aumente la exp y se completa la experiencia  suba un nivel
+Juegos: este tendra card con el nombre de juego y un oton de iniciar juego
+Progreso:en esta pantalla se podra ver el nivel los logros obtenidos la exp en total cuantos retos diarios  y semanales logrado tambien tendra una imagen estadistica del cumpliiento de los logros hechos diarios y otras de los logros semanales
+Perfil: se vera  su nombres edad peso alergia icm  y vera sus logros desbloqueados una seccion para configurar las notificaciones de aviso para tomar agua, caminata
+
+##Tecnologia
+estas son las tecnologia que va a usar para cada una de las funcionabilidades
+-Jetpack Compose como sistema de interfaces
+-material 3 como sistema de diseño
+-navigation 3 version 1.0.0 para lo que es navegacion
+-kotlin como lenguaje de proigramaciuon  
+-ViewModels de Architecture Componets para la comunicacion en la ui y capa de datos
+-Hilt como injector de dependencia
+-usara de motor grafico  intengrando Godot
+-para la persitencia de las conversaciones y de los datos usaremos Room recuerda usar ksp y no kapt para las dependencia que generan -codigo, como el compiler de room
+-usa la apli de OpenIA para el chat bot
+-para conectarnos con OpenIA, utilizaremos la libreria de la comunidad open-ai kjotlin https://github.com/Aallam/openai-kotlin
+##Arquitectura
+-la ui de compose que es el view
+-la logica que seran los viewmodels
+-y los datos que podrian ser los Models
+-comunicacion con la capa de datos mediante MVVM

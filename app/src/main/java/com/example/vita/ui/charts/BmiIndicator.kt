@@ -1,0 +1,4 @@
+package com.example.vita.ui.charts
+
+class BmiIndicator {
+}

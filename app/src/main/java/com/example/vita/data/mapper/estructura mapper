@@ -1,0 +1,10 @@
+app/src/main/java/com/example/vita/data/mapper/
+├── UserMapper.kt
+├── ProfileMapper.kt
+├── FoodPreferenceMapper.kt
+├── ProgressMapper.kt
+├── MealMapper.kt
+├── AchievementMapper.kt
+├── ChallengeMapper.kt
+├── GameResultMapper.kt
+└── ChatMessageMapper.kt
