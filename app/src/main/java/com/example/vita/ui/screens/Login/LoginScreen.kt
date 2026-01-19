@@ -10,21 +10,31 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.vita.R
 
 @Composable
 fun LoginScreen(
-    viewModel: LoginViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    viewModel: LoginViewModel = hiltViewModel(),
     onNavigateToCreateAccount: () -> Unit,
-    onLoginAttempt: (String, String) -> Unit
+    onLoginAttempt: (String, String) -> Unit,
+    onLoginSuccess: () -> Unit
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    LaunchedEffect(uiState.success) {
+        if (uiState.success) {
+            onLoginSuccess()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Parte superior verde
@@ -58,6 +68,7 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
+
             ) {
                 Text("Iniciar Sesión", fontSize = 22.sp, color = Color.Black)
 
@@ -86,7 +97,7 @@ fun LoginScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { viewModel.loginConGoogle("token_simulado") },
+                    onClick = { viewModel.loginConGoogle(context) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(painterResource(R.drawable.ic_google), contentDescription = "Google", modifier = Modifier.size(20.dp))

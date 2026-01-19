@@ -5,24 +5,25 @@ import com.example.vita.data.mapper.toDomain
 import com.example.vita.data.mapper.toEntity
 import com.example.vita.domain.model.GameResult
 import com.example.vita.domain.repository.GamesRepository
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class GamesRepositoryImpl @Inject constructor(
-    private val dao: GameResultDao
+    private val gameResultDao: GameResultDao
 ) : GamesRepository {
 
-    override suspend fun insertResult(result: GameResult) = withContext(Dispatchers.IO) {
-        dao.insertResult(result.toEntity())
+    // Cambia el nombre aquí para que coincida con la interfaz
+    override suspend fun saveGameResult(result: GameResult): GameResult {
+        val entity = result.toEntity()
+        val generatedId = gameResultDao.insertGameResult(entity)
+        return result.copy(id = generatedId)
     }
 
-    override suspend fun getResultsByUser(uid: String): List<GameResult> = withContext(Dispatchers.IO) {
-        dao.getResultsByUser(uid).map { it.toDomain() }
+    override suspend fun getResultsByUser(uid: String): List<GameResult> {
+        return gameResultDao.getResultsByUserId(uid).map { it.toDomain() }
     }
 
-    override suspend fun getTotalXpFromGames(uid: String): Int = withContext(Dispatchers.IO) {
-        dao.getTotalXpFromGames(uid) as Int
+    override suspend fun getTotalXpFromGames(uid: String): Int {
+        // El operador ?: 0 asegura que si no hay registros, devuelva 0 XP
+        return gameResultDao.getSumXpByUserId(uid) ?: 0
     }
 }

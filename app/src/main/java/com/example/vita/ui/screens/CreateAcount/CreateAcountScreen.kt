@@ -109,8 +109,3 @@ fun CreateAcountScreen(
     }
 }
 
-@Preview
-@Composable
-fun viwe(){
-    CreateAcountScreen()
-}

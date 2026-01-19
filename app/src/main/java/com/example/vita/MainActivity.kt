@@ -19,12 +19,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             VitaTheme {
-//                LoginScreen(
-//                    viewModel = LoginViewModel() ,
-//                    onLoginSuccess = {},
-//                   onNavigateToCreateAccount = {}
-//                )
-
+               AppNavigation()
             }
         }
     }

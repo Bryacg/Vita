@@ -7,6 +7,7 @@ import com.example.vita.data.local.dao.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -16,7 +17,9 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(context: Context): AppDatabase {
+    fun provideDatabase(
+        @ApplicationContext context: Context // <--- ESTA ANOTACIÓN ES OBLIGATORIA
+    ): AppDatabase {
         return Room.databaseBuilder(
             context.applicationContext,
             AppDatabase::class.java,
@@ -27,7 +30,10 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideUserDao(db: AppDatabase): UserDao = db.userDao()
+    fun provideUserDao(db: AppDatabase): UserDao {
+        return db.userDao() // Asegúrate de tener 'abstract fun userDao(): UserDao' en tu AppDatabase
+    }
+
 
     @Provides
     fun provideProfileDao(db: AppDatabase): ProfileDao = db.profileDao()

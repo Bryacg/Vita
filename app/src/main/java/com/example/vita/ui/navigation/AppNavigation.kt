@@ -1,124 +1,92 @@
 package com.example.vita.ui.navigation
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
-import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.ui.NavDisplay
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.vita.ui.AppStateViewModel
 import com.example.vita.ui.components.BottomBar
-import com.example.vita.ui.screens.CreateAcount.CreateAccountViewModel
 import com.example.vita.ui.screens.CreateAcount.CreateAcountScreen
+import com.example.vita.ui.screens.CreateAcount.CreateAccountViewModel
 import com.example.vita.ui.screens.Game.GameScreen
 import com.example.vita.ui.screens.Home.HomeScreen
 import com.example.vita.ui.screens.Login.LoginScreen
-import com.example.vita.ui.screens.Retos.RetosScreen
 import com.example.vita.ui.screens.Login.LoginViewModel
 import com.example.vita.ui.screens.Profile.ProfileScreen
-import com.example.vita.ui.screens.Progress.ProgreScreen
 import com.example.vita.ui.screens.Progress.ProgressScreen
+import com.example.vita.ui.screens.Retos.RetosScreen
 
-
-// =================================================
-//          1. NAVEGADOR RAÍZ (EL DIRECTOR DE ORQUESTA)
-// =================================================
 @Composable
-fun AppNavigation(appStateViewModel: AppStateViewModel = viewModel()) {
+fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
+    val navController = rememberNavController()
     val isLoggedIn by appStateViewModel.isLoggedIn.collectAsState()
 
-    if (isLoggedIn) {
-        MainNavigation()
-    } else {
-        AuthNavigation()
-    }
-}
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
+    val showBottomBar = currentRoute in listOf(
+        Routes.Home.route,
+        Routes.Retos.route,
+        Routes.Juegos.route,
+        Routes.Progreso.route,
+        Routes.Perfil.route
+    )
 
-// =================================================
-//          2. NAVEGADOR DE AUTENTICACIÓN
-// =================================================
-
-@Composable
-private fun AuthNavigation() {
-    val backStack: NavBackStack<NavKey> = rememberNavBackStack(Routes.Auth.Login)
-
-    NavDisplay(
-        backStack = backStack,
-        onBack = { backStack.removeLastOrNull() },
-        entryProvider = entryProvider {
-            // Pantalla de Login
-            entry<Routes.Auth.Login> {
-                val loginViewModel: LoginViewModel = viewModel()
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                BottomBar(navController = navController)
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = if (isLoggedIn) Routes.Home.route else Routes.Login.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            // --- FLUJO DE AUTENTICACIÓN ---
+            composable(Routes.Login.route) {
+                val loginViewModel: LoginViewModel = hiltViewModel()
                 LoginScreen(
-                    onNavigateToCreateAccount = { backStack.add(Routes.Auth.CreateAccount) },
+                    onNavigateToCreateAccount = {
+                        navController.navigate(Routes.CreateAccount.route)
+                    },
                     onLoginAttempt = { email, password ->
-                        loginViewModel.signInWithEmailAndPassword(email, password) { success, error ->
-                            if (!success) {
-                                println("Error de inicio de sesión: $error")
-                            }
+                        loginViewModel.login(email, password)
+                    },
+                    // AGREGAMOS ESTE PARÁMETRO QUE FALTABA
+                    onLoginSuccess = {
+                        navController.navigate(Routes.Home.route) {
+                            // Limpia el stack para que no pueda volver al Login con el botón "atrás"
+                            popUpTo(Routes.Login.route) { inclusive = true }
                         }
                     }
                 )
             }
 
-            // Pantalla de Crear Cuenta
-            entry<Routes.Auth.CreateAccount> {
-                val createAccountViewModel: CreateAccountViewModel = viewModel()
+            composable(Routes.CreateAccount.route) {
+                val createAccountViewModel: CreateAccountViewModel = hiltViewModel()
                 CreateAcountScreen(
                     onCreateAccountAttempt = { email, password ->
-                        createAccountViewModel.crearCuenta(email, password) { success, error ->
-                            if (!success) {
-                                println("Error al crear cuenta: $error")
-                            }
-                        }
+                        createAccountViewModel.crearCuenta(email, password)
                     },
-                    onNavigateBackToLogin = { backStack.removeLastOrNull() }
+                    onNavigateBackToLogin = { navController.popBackStack() }
                 )
             }
+
+            // --- FLUJO PRINCIPAL ---
+            composable(Routes.Home.route) { HomeScreen() }
+            composable(Routes.Retos.route) { RetosScreen() }
+            composable(Routes.Juegos.route) { GameScreen() }
+            composable(Routes.Progreso.route) { ProgressScreen() }
+            composable(Routes.Perfil.route) { ProfileScreen() }
         }
-    )
+    }
 }
-
-
-
-// =================================================
-// 3. NAVEGADOR PRINCIPAL (CON EL BOTTOM BAR)
-// =================================================
-@Composable
-private fun MainNavigation(navController: NavHostController,
-                           modifier: Modifier = Modifier
-) {
-
-    androidx.navigation.NavHost(
-        navController = navController,
-        startDestination = Routes.Screen.Home.route,
-        modifier = modifier
-    ) {
-        composable(Screen.Home.route) {
-            HomeScreen()
-        }
-        composable(Screen.Retos.route) {
-            RetoScreen()
-        }
-        composable(Screen.Juegos.route) {
-            JuegosScreen()
-        }
-        composable(Screen.Progreso.route) {
-            ProgresoScreen()
-        }
-        composable(Screen.Profile.route) {
-            ProfileScreen()
-        }
-    }
-
-    }
-
-
-

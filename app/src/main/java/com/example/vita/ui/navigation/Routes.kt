@@ -1,28 +1,16 @@
 package com.example.vita.ui.navigation
 
-import androidx.navigation3.runtime.NavKey
-import kotlinx.serialization.Serializable
+sealed class Routes(val route: String) {
+    // Rutas de Autenticación
+    object AuthGraph : Routes("auth_graph")
+    object Login : Routes("login")
+    object CreateAccount : Routes("create_account")
 
-//  Flujo de Autenticación: Contiene Login y Crear Cuenta
-@Serializable
-sealed class Routes : NavKey {
-
-    @Serializable
-    sealed class Auth : Routes() {
-        @Serializable
-        data object Login : Auth()
-
-        @Serializable
-        data object CreateAccount : Auth()
-    }
-
-    //  Flujo Principal: Contiene las pantallas post-login
-    @Serializable
-    sealed class Screen(val route: String) {
-        object Home : Screen("home")
-        object Retos : Screen("retos")
-        object Juegos : Screen("juegos")
-        object Progreso : Screen("progreso")
-        object Profile : Screen("profile")
-    }
+    // Rutas Principales
+    object MainGraph : Routes("main_graph")
+    object Home : Routes("home")
+    object Retos : Routes("retos")
+    object Juegos : Routes("juegos")
+    object Progreso : Routes("progreso")
+    object Perfil : Routes("perfil")
 }

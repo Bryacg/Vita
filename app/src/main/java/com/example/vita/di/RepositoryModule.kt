@@ -52,4 +52,9 @@ object RepositoryModule {
     fun provideProgresoRepository(dao: ProgressDao): ProgresoRepository {
         return ProgresoRepositoryImpl(dao)
     }
+    @Provides
+    @Singleton
+    fun provideUserRepository(userDao: UserDao): UserRepository {
+        return UserRepositoryImpl(userDao)
+    }
 }

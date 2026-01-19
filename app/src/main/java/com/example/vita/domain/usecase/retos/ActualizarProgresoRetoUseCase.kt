@@ -6,7 +6,7 @@ import javax.inject.Inject
 class ActualizarProgresoRetoUseCase @Inject constructor(
     private val challengeRepository: ChallengeRepository
 ) {
-    suspend operator fun invoke(retoId: Int, cantidad: Int) {
+    suspend operator fun invoke(retoId: Long, cantidad: Int) {
         challengeRepository.updateProgress(retoId, cantidad)
     }
 }

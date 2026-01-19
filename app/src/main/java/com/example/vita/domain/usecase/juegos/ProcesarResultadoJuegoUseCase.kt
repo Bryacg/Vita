@@ -5,9 +5,10 @@ import com.example.vita.domain.repository.GamesRepository
 import javax.inject.Inject
 
 class ProcesarResultadoJuegoUseCase @Inject constructor(
-    private val GamesRepository: GamesRepository
+    private val repository: GamesRepository
 ) {
-    suspend operator fun invoke(resultado: GameResult) {
-        GamesRepository.insertResult(resultado)
+    // Debe recibir el OBJETO completo
+    suspend operator fun invoke(gameResult: GameResult): GameResult {
+        return repository.saveGameResult(gameResult)
     }
 }

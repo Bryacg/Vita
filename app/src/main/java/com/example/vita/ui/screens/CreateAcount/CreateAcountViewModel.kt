@@ -1,6 +1,7 @@
 package com.example.vita.ui.screens.CreateAcount
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vita.domain.usecase.auth.RegisterUserUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -8,11 +9,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.example.vita.domain.usecase.auth.RegisterUseCase
+
+
 
 @HiltViewModel
 class CreateAccountViewModel @Inject constructor(
-    private val registerUseCase: RegisterUseCase
+    private val registerUseCase: RegisterUserUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateAccountUiState())
@@ -20,10 +22,22 @@ class CreateAccountViewModel @Inject constructor(
 
     fun crearCuenta(email: String, password: String) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
             val result = registerUseCase(email, password)
-            _uiState.update { it.copy(success = result.success, error = result.error) }
+
+            _uiState.update { state ->
+                result.fold(
+                    onSuccess = { state.copy(success = true, error = null, isLoading = false) },
+                    onFailure = { state.copy(success = false, error = it.message, isLoading = false) }
+                )
+            }
         }
     }
 }
 
-data class CreateAccountUiState(val success: Boolean = false, val error: String? = null)
+data class CreateAccountUiState(
+    val success: Boolean = false,
+    val error: String? = null,
+    val isLoading: Boolean = false // Añadido para mejor UX
+)
