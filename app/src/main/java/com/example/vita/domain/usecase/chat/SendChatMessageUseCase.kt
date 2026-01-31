@@ -5,9 +5,9 @@ import com.example.vita.domain.repository.ChatRepository
 import javax.inject.Inject
 
 class EnviarMensajeChatUseCase @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val repository: ChatRepository
 ) {
-    suspend operator fun invoke(mensaje: ChatMessage): ChatMessage {
-        return chatRepository.sendMessage(mensaje)
+    suspend operator fun invoke(message: ChatMessage): ChatMessage {
+        return repository.sendMessage(message)
     }
 }

@@ -4,6 +4,7 @@ import com.example.vita.data.local.dao.*
 import com.example.vita.data.remote.firebase.FirebaseAuthDataSource
 import com.example.vita.data.repository.*
 import com.example.vita.domain.repository.*
+import com.google.ai.client.generativeai.GenerativeModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,9 +31,10 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideChatRepository(): ChatRepository {
-        // Aquí inyectarías tu ChatRemoteDataSource (OpenAI/Gemini)
-        return ChatRepositoryImpl()
+    fun provideChatRepository(
+        generativeModel: GenerativeModel // Hilt lo buscará en el AIModule
+    ): ChatRepository {
+        return ChatRepositoryImpl(generativeModel)
     }
 
     @Provides

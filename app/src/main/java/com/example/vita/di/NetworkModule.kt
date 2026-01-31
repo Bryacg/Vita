@@ -1,5 +1,6 @@
 package com.example.vita.di
 
+import com.google.ai.client.generativeai.GenerativeModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,4 +20,13 @@ object NetworkModule {
             .baseUrl("https://api.tuendpoint.com/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+
+    @Provides
+    @Singleton
+    fun provideGenerativeModel(): GenerativeModel {
+        return GenerativeModel(
+            modelName = "gemini-flash-lite-latest",
+            apiKey = "TU_API_KEY_AQUI" // Reemplaza con tu clave real
+        )
+    }
 }
