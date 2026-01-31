@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.foundation.layout)
+    implementation(libs.androidx.material3)
     debugImplementation(libs.compose.ui.tooling)
 
     // Navigation + Hilt Navigation
@@ -114,6 +115,10 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
+    //Iconos
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+    // SDK oficial de Google Generative AI
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 }
 
 // Recomendado: agrega al final para evitar warnings de resolución de dependencias
