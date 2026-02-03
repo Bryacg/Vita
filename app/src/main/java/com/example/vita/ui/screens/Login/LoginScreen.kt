@@ -1,6 +1,5 @@
 package com.example.vita.ui.screens.Login
 
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,7 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,60 +22,67 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
     onNavigateToCreateAccount: () -> Unit,
     onLoginAttempt: (String, String) -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onNavigateToProfile: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
-            onLoginSuccess()
+            if (uiState.navigateToProfile) {
+                onNavigateToProfile()
+            } else {
+                onLoginSuccess()
+            }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Parte superior verde
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.4f)
-                .background(Color(0xFF4CAF50)), // verde
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(
-                    painter = painterResource(R.drawable.ic_apple), // usa tu ícono aquí
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(64.dp)
-                )
-                Text("VitaGame", fontSize = 28.sp, color = Color.White)
-            }
-        }
-
-        // Parte inferior blanca con bordes redondeados
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(MaterialTheme.colorScheme.primaryContainer) // Color de fondo basado en el tema
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.7f)
                 .align(Alignment.BottomCenter)
-                .background(Color.White, shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                .background(
+                    color = MaterialTheme.colorScheme.surface, // Usa el color de superficie del tema
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                )
                 .padding(24.dp)
         ) {
+            if (uiState.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
-
             ) {
-                Text("Iniciar Sesión", fontSize = 22.sp, color = Color.Black)
+                Text(
+                    text = "Iniciar Sesión",
+                    style = MaterialTheme.typography.headlineSmall, // Tipografía del tema
+                    color = MaterialTheme.colorScheme.onSurface // Color de texto adaptativo
+                )
 
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text("Correo Electrónico") },
-                    placeholder = { Text("tu@correo.com") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
                 )
 
                 OutlinedTextField(
@@ -85,32 +90,54 @@ fun LoginScreen(
                     onValueChange = { password = it },
                     label = { Text("Contraseña") },
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading
                 )
 
                 Button(
                     onClick = { onLoginAttempt(email, password) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    // Cambiado de Color fijo a Primary del tema
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    enabled = !uiState.isLoading && email.isNotBlank() && password.isNotBlank()
                 ) {
-                    Text("Iniciar Sesión", color = Color.White)
+                    Text("Iniciar Sesión")
                 }
 
                 OutlinedButton(
                     onClick = { viewModel.loginConGoogle(context) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outline)
+                    )
                 ) {
-                    Icon(painterResource(R.drawable.ic_google), contentDescription = "Google", modifier = Modifier.size(20.dp))
+                    Icon(
+                        painterResource(R.drawable.ic_google),
+                        contentDescription = "Google",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.Unspecified // Mantiene los colores originales del logo
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Google")
+                    Text("Google", color = MaterialTheme.colorScheme.onSurface)
                 }
 
-                TextButton(onClick = onNavigateToCreateAccount) {
-                    Text("Registrarse", color = Color(0xFF2196F3))
+                TextButton(
+                    onClick = onNavigateToCreateAccount,
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Registrarse", color = MaterialTheme.colorScheme.secondary)
                 }
 
                 if (uiState.error != null) {
-                    Text(uiState.error ?: "", color = Color.Red, fontSize = 14.sp)
+                    Text(
+                        text = uiState.error ?: "",
+                        color = MaterialTheme.colorScheme.error, // Color de error del tema
+                        fontSize = 14.sp
+                    )
                 }
             }
         }

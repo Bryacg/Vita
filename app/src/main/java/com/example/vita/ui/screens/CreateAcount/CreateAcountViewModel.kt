@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
+import com.example.vita.domain.model.User // Asegúrate de importar tu modelo User
 
 
 @HiltViewModel
@@ -20,11 +20,23 @@ class CreateAccountViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CreateAccountUiState())
     val uiState: StateFlow<CreateAccountUiState> = _uiState.asStateFlow()
 
-    fun crearCuenta(email: String, password: String) {
+    // Ahora la función recibe los 4 parámetros necesarios
+    fun crearCuenta(name: String, lastName: String, email: String, password: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            val result = registerUseCase(email, password)
+            // 1. Creamos el usuario con los datos reales de la vista
+            val userToRegister = User(
+                idUsuario = "",
+                email = email,
+                name = name,
+                lastName = lastName,
+                currentLevel = 1,
+                currentXp = 0
+            )
+
+            // 2. Ahora sí el UseCase recibe el objeto completo
+            val result = registerUseCase(userToRegister, password)
 
             _uiState.update { state ->
                 result.fold(
@@ -39,5 +51,5 @@ class CreateAccountViewModel @Inject constructor(
 data class CreateAccountUiState(
     val success: Boolean = false,
     val error: String? = null,
-    val isLoading: Boolean = false // Añadido para mejor UX
+    val isLoading: Boolean = false
 )

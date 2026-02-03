@@ -95,4 +95,26 @@ class FirebaseAuthDataSource @Inject constructor(
     fun getCurrentUserId(): String? = auth.currentUser?.uid
 
     fun signOut() = auth.signOut()
+
+    fun getAuthenticatedUserInfo(): User? {
+        val firebaseUser = auth.currentUser ?: return null
+
+        // Aquí SÍ existe 'displayName' porque firebaseUser es de la SDK de Firebase
+        val fullName = firebaseUser.displayName ?: ""
+        val emailReal = firebaseUser.email ?: ""
+
+        // Separamos el nombre y apellido de forma segura
+        val nameParts = fullName.trim().split("\\s+".toRegex())
+        val firstName = nameParts.getOrNull(0) ?: "Usuario"
+        val lastName = if (nameParts.size > 1) nameParts.drop(1).joinToString(" ") else "Vita"
+
+        return User(
+            idUsuario = firebaseUser.uid,
+            email = emailReal,
+            name = firstName,
+            lastName = lastName,
+            currentLevel = 1,
+            currentXp = 0
+        )
+    }
 }

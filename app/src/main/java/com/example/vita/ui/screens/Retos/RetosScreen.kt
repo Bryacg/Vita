@@ -1,6 +1,5 @@
 package com.example.vita.ui.screens.Retos
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,53 +10,77 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.vita.ui.components.CardRetos
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.vita.ui.components.retos.CardRetos
 
 @Composable
-fun RetosScreen(){
+fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
+    var filtroSeleccionado by remember { mutableStateOf("DIARIO") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            modifier= Modifier
-                .padding(top = 16.dp, bottom = 8.dp)
-                ,
-            fontWeight = FontWeight.Bold,
-            text = "¡Retos y Desafios!")
-        Text(text = "Completa desafios para poder ganar puntos y subir de nivel")
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Button(
-                onClick = { /* Acción */ },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(5.dp)
-            ) {
-                Text("Retos Diarios")
-            }
-            Button(
-                onClick = { /* Acción */ },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(5.dp)
-            ) {
-                Text("Reto Semanales")
-            }
+        Text(text = "¡Retos y Desafíos!", fontWeight = FontWeight.Bold)
+
+        // Indicadores de Depuración (Útiles para confirmar el éxito)
+        Text(text = "Total en Base de Datos: ${uiState.retos.size}", color = androidx.compose.ui.graphics.Color.Red)
+
+        // 1. Mostrar carga si la IA está trabajando
+        if (uiState.isLoading) {
+            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+            Text("Gemini está creando tus retos...")
         }
-        // Aquí irán tus retos generados por IA
-        CardRetos("Vaso de Agua Diario","Bebe 8 Vasos de Agua Al Dia","3","7")
-        CardRetos("Caminata","da 500 pasos diarios","60","500")
-        CardRetos("Comida de Colores","ingiere una comida variqa de nutrientes como carne, vegetales, y frutas","6","7")
-        CardRetos("Vaso de Agua Diario","Bebe 8 Vasos de Agua Al Dia","12","25")
+
+        // Botones de filtro
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Button(
+                onClick = { filtroSeleccionado = "DIARIO" },
+                modifier = Modifier.weight(1f).padding(4.dp),
+                enabled = filtroSeleccionado != "DIARIO"
+            ) { Text("Diarios") }
+
+            Button(
+                onClick = { filtroSeleccionado = "SEMANAL" },
+                modifier = Modifier.weight(1f).padding(4.dp),
+                enabled = filtroSeleccionado != "SEMANAL"
+            ) { Text("Semanales") }
+        }
+
+        // Listado dinámico con filtrado insensible a mayúsculas/minúsculas
+        val retosFiltrados = uiState.retos.filter {
+            it.type.equals(filtroSeleccionado, ignoreCase = true)
+        }
+        android.util.Log.d("VITA_LOG", "Lista total: ${uiState.retos.size}, Filtrados: ${retosFiltrados.size}")
+
+        if (retosFiltrados.isEmpty() && !uiState.isLoading) {
+            Text(
+                text = "No hay retos $filtroSeleccionado disponibles.",
+                modifier = Modifier.padding(16.dp),
+                color = androidx.compose.ui.graphics.Color.Gray
+            )
+        }
+
+        retosFiltrados.forEach { reto ->
+            CardRetos(
+                titulo = reto.name,
+                descripcion = reto.description,
+                progreso = reto.currentValue.toString(),
+                numeroRetos = reto.targetValue.toString()
+            )
+        }
     }
 }

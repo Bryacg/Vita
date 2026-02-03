@@ -21,8 +21,15 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun signInWithGoogle(context: Context): Result<User> {
-        return firebaseAuthDataSource.signInWithGoogle(context)
-    } // <-- ESTA ES LA LLAVE QUE FALTABA
+        return try {
+            firebaseAuthDataSource.signInWithGoogle(context)
+        } catch (e: com.google.android.gms.common.api.ApiException) {
+            // El código 10 o 12500 significa error de configuración (SHA-1 o Client ID)
+            Result.failure(Exception("Error de Google Status: ${e.statusCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     override suspend fun login(email: String, password: String): Result<User> {
         return firebaseAuthDataSource.login(email, password)
@@ -35,5 +42,17 @@ class AuthRepositoryImpl @Inject constructor(
 
     override fun getCurrentUserId(): String? {
         return firebaseAuthDataSource.getCurrentUserId()
+    }
+    override fun getCurrentUser(): User? {
+        // Obtenemos el ID actual
+        val uid = firebaseAuthDataSource.getCurrentUserId() ?: return null
+
+        // Debes asegurarte de que tu DataSource pueda acceder al FirebaseUser actual
+        // Si tu DataSource tiene una instancia de FirebaseAuth, puedes extraer:
+        // val fbUser = firebaseAuth.currentUser
+
+        // Por ahora, devolvemos la estructura necesaria.
+        // Nota: Asegúrate de que firebaseAuthDataSource exponga estos datos.
+        return firebaseAuthDataSource.getAuthenticatedUserInfo()
     }
 }

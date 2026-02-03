@@ -3,7 +3,9 @@ package com.example.vita.ui.screens.CreateAcount
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,25 +15,31 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.vita.R
 
 @Composable
-fun CreateAcountScreen(
-    viewModel: CreateAccountViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    onCreateAccountAttempt: (String, String) -> Unit,
+fun CreateAccountScreen(
+    viewModel: CreateAccountViewModel = hiltViewModel(),
+    onCreateAccountAttempt: (String, String, String, String) -> Unit, // Añadidos Nombre y Apellido
     onNavigateBackToLogin: () -> Unit
 ) {
+    val uiState by viewModel.uiState.collectAsState() // Asumiendo que usas StateFlow
+
     var name by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") } // Recomendado separar apellido
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Parte superior verde con logo
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(MaterialTheme.colorScheme.primary) // Fondo superior dinámico
+    ) {
+        // Parte superior con logo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.4f)
-                .background(Color(0xFF4CAF50)),
+                .fillMaxHeight(0.4f),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -40,40 +48,66 @@ fun CreateAcountScreen(
                     contentDescription = "Logo",
                     modifier = Modifier.size(64.dp)
                 )
-                Text("VitaGame", fontSize = 28.sp, color = Color.White)
+                Text(
+                    text = "VitaGame",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimary // Texto blanco o contraste
+                )
             }
         }
 
-        // Parte inferior blanca con campos
+        // Parte inferior (Formulario)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.7f)
                 .align(Alignment.BottomCenter)
-                .background(Color.White, shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                .background(
+                    color = MaterialTheme.colorScheme.surface, // Fondo adaptativo
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                )
                 .padding(24.dp)
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()) // Por si los campos no caben en pantallas pequeñas
             ) {
-                Text("Crear Cuenta", fontSize = 22.sp, color = Color.Black)
+                Text(
+                    text = "Crear Cuenta",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
+                // Campo Nombre
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Nombre") },
-                    placeholder = { Text("Tu nombre") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
+                )
+
+                // Campo Apellido
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Apellido") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
                 )
 
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text("Correo Electrónico") },
-                    placeholder = { Text("tu@correo.com") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -81,31 +115,45 @@ fun CreateAcountScreen(
                     onValueChange = { password = it },
                     label = { Text("Contraseña") },
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
                 )
 
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+
                 Button(
-                    onClick = { onCreateAccountAttempt(email, password) },
+                    onClick = { onCreateAccountAttempt(name, lastName, email, password) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    enabled = !uiState.isLoading && name.isNotBlank() && email.isNotBlank() && password.isNotBlank()
                 ) {
-                    Text("Crear Cuenta", color = Color.White)
+                    Text("Registrarse")
                 }
 
-                OutlinedButton(
-                    onClick = { /* login con Google */ },
-                    modifier = Modifier.fillMaxWidth()
+                TextButton(
+                    onClick = onNavigateBackToLogin,
+                    enabled = !uiState.isLoading
                 ) {
-                    Icon(painterResource(R.drawable.ic_google), contentDescription = "Google", modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Google")
+                    Text(
+                        text = "Volver al Login",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
 
-                TextButton(onClick = onNavigateBackToLogin) {
-                    Text("Volver al Login", color = Color(0xFF2196F3))
+                if (uiState.error != null) {
+                    Text(
+                        text = uiState.error ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
     }
 }
-

@@ -30,13 +30,13 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideUserDao(db: AppDatabase): UserDao {
-        return db.userDao() // Asegúrate de tener 'abstract fun userDao(): UserDao' en tu AppDatabase
-    }
-
+    fun provideUserDao(db: AppDatabase): UserDao = db.userDao()
 
     @Provides
     fun provideProfileDao(db: AppDatabase): ProfileDao = db.profileDao()
+
+    @Provides
+    fun provideFoodDao(db: AppDatabase): FoodDao = db.FoodDao()
 
     @Provides
     fun provideFoodPreferenceDao(db: AppDatabase): FoodPreferenceDao = db.foodPreferenceDao()

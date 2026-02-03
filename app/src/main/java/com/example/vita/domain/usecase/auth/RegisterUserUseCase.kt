@@ -7,10 +7,9 @@ import javax.inject.Inject
 class RegisterUserUseCase @Inject constructor(
     private val repository: AuthRepository
 ) {
-    // Definimos el invoke para aceptar email y password y retornar Result
-    suspend operator fun invoke(email: String, password: String): Result<User> {
-        // Creamos un objeto User temporal para el repositorio
-        val tempUser = User(idUsuario = "", email = email, name = "", lastName = "", currentLevel = 1, currentXp = 0)
-        return repository.register(tempUser, password)
+    // Cambiamos los parámetros para recibir el objeto User completo
+    suspend operator fun invoke(user: User, password: String): Result<User> {
+        // Ahora pasamos el usuario con su nombre y apellido reales al repositorio
+        return repository.register(user, password)
     }
 }

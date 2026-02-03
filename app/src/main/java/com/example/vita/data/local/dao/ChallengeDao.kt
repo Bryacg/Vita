@@ -6,9 +6,10 @@ import com.example.vita.data.local.entities.ChallengeEntity
 interface ChallengeDao {
     //ingresar rewtos
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertChallenge(challenge: ChallengeEntity)
+    suspend fun insertChallenges(challenges: List<ChallengeEntity>)
+
     // Obtiene los desafíos activos de un usuario.
-    @Query("SELECT * FROM challenge WHERE userId = :uid AND status = 'ACTIVE'  ")
+    @Query("SELECT * FROM challenge WHERE userId = :uid AND (status = 'ACTIVE' OR status = 'ACTIVO')  ")
     suspend fun getActiveChallenges(uid: String): List<ChallengeEntity>
 
 

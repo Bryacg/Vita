@@ -10,8 +10,6 @@ fun ProfileEntity.toDomain() = Profile(
     weight = weight,
     age = age,
     gender = gender,
-
-
 )
 
 fun Profile.toEntity() = ProfileEntity(

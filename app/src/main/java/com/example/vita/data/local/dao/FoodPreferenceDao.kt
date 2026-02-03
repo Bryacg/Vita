@@ -7,8 +7,9 @@ interface FoodPreferenceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPreference(pref: FoodPreferenceEntity)
 
-    @Query("SELECT * FROM food_preference WHERE userId = :uid LIMIT 1")
-    suspend fun getPreferenceByUser(uid: String): FoodPreferenceEntity?
+    // CORRECCIÓN: Quitamos LIMIT 1 para traer TODOS los gustos (ej: Manzana, Pollo, etc.)
+    @Query("SELECT * FROM food_preference WHERE userId = :userId")
+    suspend fun getPreferencesByUserId(userId: String): List<FoodPreferenceEntity>
 
     @Update
     suspend fun updatePreference(pref: FoodPreferenceEntity)

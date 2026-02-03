@@ -13,7 +13,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.vita.ui.AppStateViewModel
 import com.example.vita.ui.components.BottomBar
-import com.example.vita.ui.screens.CreateAcount.CreateAcountScreen
+import com.example.vita.ui.screens.CreateAcount.CreateAccountScreen
 import com.example.vita.ui.screens.CreateAcount.CreateAccountViewModel
 import com.example.vita.ui.screens.Game.GameScreen
 import com.example.vita.ui.screens.Home.HomeScreen
@@ -22,6 +22,7 @@ import com.example.vita.ui.screens.Login.LoginViewModel
 import com.example.vita.ui.screens.Profile.ProfileScreen
 import com.example.vita.ui.screens.Progress.ProgressScreen
 import com.example.vita.ui.screens.Retos.RetosScreen
+import com.example.vita.ui.screens.Retos.RetosViewModel
 
 @Composable
 fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
@@ -55,16 +56,20 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
             composable(Routes.Login.route) {
                 val loginViewModel: LoginViewModel = hiltViewModel()
                 LoginScreen(
+                    viewModel = loginViewModel,
                     onNavigateToCreateAccount = {
                         navController.navigate(Routes.CreateAccount.route)
                     },
                     onLoginAttempt = { email, password ->
                         loginViewModel.login(email, password)
                     },
-                    // AGREGAMOS ESTE PARÁMETRO QUE FALTABA
                     onLoginSuccess = {
                         navController.navigate(Routes.Home.route) {
-                            // Limpia el stack para que no pueda volver al Login con el botón "atrás"
+                            popUpTo(Routes.Login.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Routes.Perfil.route) {
                             popUpTo(Routes.Login.route) { inclusive = true }
                         }
                     }
@@ -73,9 +78,12 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
 
             composable(Routes.CreateAccount.route) {
                 val createAccountViewModel: CreateAccountViewModel = hiltViewModel()
-                CreateAcountScreen(
-                    onCreateAccountAttempt = { email, password ->
-                        createAccountViewModel.crearCuenta(email, password)
+                // 1. Corregido el nombre de la función (Account con doble 'c')
+                // 2. Especificados los tipos explícitamente para evitar el error de inferencia
+                CreateAccountScreen(
+                    viewModel = createAccountViewModel,
+                    onCreateAccountAttempt = { name: String, lastName: String, email: String, pass: String ->
+                        createAccountViewModel.crearCuenta(name, lastName, email, pass)
                     },
                     onNavigateBackToLogin = { navController.popBackStack() }
                 )
@@ -83,10 +91,21 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
 
             // --- FLUJO PRINCIPAL ---
             composable(Routes.Home.route) { HomeScreen() }
-            composable(Routes.Retos.route) { RetosScreen() }
+            composable(Routes.Retos.route) { val retosViewModel: RetosViewModel = hiltViewModel()
+                RetosScreen(viewModel = retosViewModel) }
             composable(Routes.Juegos.route) { GameScreen() }
             composable(Routes.Progreso.route) { ProgressScreen() }
-            composable(Routes.Perfil.route) { ProfileScreen() }
+
+            composable(Routes.Perfil.route) {
+                ProfileScreen(
+                    onLogoutSuccess = {
+                        navController.navigate(Routes.Login.route) {
+                            // Cambiado a popUpTo(0) o a una ruta raíz para limpiar todo el stack
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
     }
 }

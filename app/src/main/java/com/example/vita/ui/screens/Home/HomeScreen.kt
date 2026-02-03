@@ -18,7 +18,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.vita.ui.components.CardGame
 import com.example.vita.ui.components.CardInf
-import com.example.vita.ui.components.CardRetos
 import com.example.vita.ui.screens.ChatBot.ChatBotFab
 
 

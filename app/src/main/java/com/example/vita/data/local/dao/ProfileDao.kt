@@ -12,4 +12,7 @@ interface ProfileDao {
     // Obtiene el perfil biométrico de un usuario específico.
     @Query("SELECT * FROM profile WHERE userId = :uid LIMIT 1")
     suspend fun getProfileByUser(uid: String): ProfileEntity?
+
+    @Query("DELETE FROM profile WHERE userId = :userId")
+    suspend fun deleteProfileByUserId(userId: String)
 }

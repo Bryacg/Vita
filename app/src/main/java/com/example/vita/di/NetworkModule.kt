@@ -9,10 +9,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 
-
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
     @Provides
     @Singleton
     fun provideRetrofit(): Retrofit =
@@ -21,12 +21,26 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
+    // --- CONFIGURACIÓN DE GEMINI ---
     @Provides
     @Singleton
-    fun provideGenerativeModel(): GenerativeModel {
+    @ChatBotApi
+    fun provideChatModel(): GenerativeModel {
         return GenerativeModel(
-            modelName = "gemini-flash-lite-latest",
-            apiKey = "TU_API_KEY_AQUI" // Reemplaza con tu clave real
+            // Cambiamos a la versión específica estable
+            modelName = "gemini-5.5-flash-lite",
+            apiKey = "AIzaSyAw1eCtNzrzYwj9-Pw6nBRWktHJMHrQS2Y"
+        )
+    }
+
+    @Provides
+    @Singleton
+    @RetosApi
+    fun provideRetosModel(): GenerativeModel {
+        return GenerativeModel(
+            // CAMBIO IMPORTANTE: Usamos gemini-1.5-flash-latest para evitar el error 404
+            modelName = "gemini-5.5-flash-lite",
+            apiKey = "AIzaSyCC8BpGecpr7Ycn8yiJtcUJOD0Kc6O-qw8"
         )
     }
 }

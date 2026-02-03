@@ -7,5 +7,4 @@ data class Profile(
     val weight: Float,   // kg   Peso corporal del usuario en kilogramos.
     val age: Int,        // Afecta el metabolismo basal.
     val gender: String
-
 )

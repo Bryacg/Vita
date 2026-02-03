@@ -14,4 +14,5 @@ interface AuthRepository {
 
     fun signOut()
     fun getCurrentUserId(): String?
+    fun getCurrentUser(): User?
 }
