@@ -5,37 +5,26 @@ import kotlinx.coroutines.flow.Flow
 
 interface ProgresoRepository {
 
-    // 1. FUNCIÓN VITAL PARA LA HOME: Permite observar cambios en tiempo real
+    // --- FLUJOS REACTIVOS (HOME) ---
     fun getProgresoStream(uid: String): Flow<Progress?>
 
-    // 2. Obtención de datos de un solo disparo (usado en el init del ViewModel)
+    // --- CONSULTAS ---
     suspend fun getProgreso(uid: String): Progress?
+    suspend fun getProgresoPorFecha(uid: String, fecha: Long): Progress?
+    suspend fun getTotalXpDeSiempre(uid: String): Int
 
-    // 3. Inserción inicial
+    // --- OPERACIONES DE ACTUALIZACIÓN ---
     suspend fun insertarProgreso(progreso: Progress)
 
-    /**
-     * Incrementa la experiencia acumulada.
-     */
-    suspend fun agregarXp(uid: String, xp: Int)
+    // Esta es la que usaremos en el UseCase para el control diario
+    suspend fun agregarXpHoy(uid: String, xp: Int, fecha: Long)
 
-    /**
-     * Actualiza el nivel cuando el LevelCalculator detecta un cambio de rango.
-     */
     suspend fun actualizarNivel(uid: String, nivel: Int)
-
-    /**
-     * Actualiza el Índice de Masa Corporal calculado.
-     */
     suspend fun actualizarBmi(uid: String, bmi: Double)
-
-    /**
-     * Actualiza la racha de días consecutivos.
-     */
     suspend fun actualizarRacha(uid: String, dias: Int)
-
-    /**
-     * Resetea la racha si el usuario no cumplió sus metas diarias.
-     */
     suspend fun resetearRacha(uid: String)
+
+    // Opcional: Puedes mantener esta si tienes otras funciones que no dependen de la fecha
+    // pero lo ideal es migrar todo a agregarXpHoy
+    suspend fun agregarXp(uid: String, xp: Int)
 }

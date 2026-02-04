@@ -2,11 +2,13 @@ package com.example.vita.ui.screens.Home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.model.Progress
 import com.example.vita.domain.model.User
 import com.example.vita.domain.repository.AuthRepository
-import com.example.vita.domain.repository.ProgresoRepository // Importante
+import com.example.vita.domain.repository.ProgresoRepository
 import com.example.vita.domain.repository.UserRepository
+import com.example.vita.domain.repository.ChallengeRepository
 import com.example.vita.domain.usecase.progreso.AgregarXpUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,10 +20,10 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val progresoRepository: ProgresoRepository,
-    private val agregarXpUseCase: AgregarXpUseCase // Mantenemos el UseCase porque ayuda con la lógica de nivel
+    private val challengeRepository: ChallengeRepository,
+    private val agregarXpUseCase: AgregarXpUseCase
 ) : ViewModel() {
 
-    // 1. Un solo State para toda la pantalla (Igual que en Perfil)
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
@@ -31,39 +33,55 @@ class HomeViewModel @Inject constructor(
         cargarDatos()
     }
 
+    /**
+     * Carga de forma unificada el usuario, su progreso global y el reto prioritario.
+     */
     fun cargarDatos() {
         val uid = userId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            // 2. Cargamos datos de la misma forma que el perfil
-            val user = userRepository.getUserById(uid)
-            var progress = progresoRepository.getProgreso(uid)
+            try {
+                // 1. Obtener datos básicos
+                val user = userRepository.getUserById(uid)
+                var progress = progresoRepository.getProgreso(uid)
 
-            // 3. Si progreso está vacío (como vimos en el inspector), lo creamos aquí mismo
-            if (progress == null) {
-                val nuevoProgreso = Progress(
-                    id = 0,
-                    userId = uid,
-                    level = 1,
-                    xp = 0,
-                    streakDays = 1,
-                    bmi = 0f,
-                    weight = 0f,
-                    date = System.currentTimeMillis()
-                )
-                progresoRepository.insertarProgreso(nuevoProgreso)
-                progress = nuevoProgreso // Lo asignamos para mostrarlo
+                // Si no existe progreso inicial (primer inicio), se crea
+                if (progress == null) {
+                    val nuevoProgreso = Progress(
+                        id = 0, userId = uid, level = 1, xp = 0,
+                        streakDays = 1, bmi = 0f, weight = 0f,
+                        date = System.currentTimeMillis()
+                    )
+                    progresoRepository.insertarProgreso(nuevoProgreso)
+                    progress = nuevoProgreso
+                }
+
+                // 2. Obtener lista de retos para seleccionar el prioritario
+                val todosLosRetos = challengeRepository.getActiveChallenges(uid)
+
+                // Prioridad:
+                // A) El primero que tenga progreso real pero no esté completado.
+                // B) Si no hay ninguno empezado, el primero que esté activo.
+                val retoPrioritario = todosLosRetos
+                    .find { it.currentValue > 0 && it.status != "COMPLETED" }
+                    ?: todosLosRetos.find { it.status != "COMPLETED" }
+
+                _uiState.update { it.copy(
+                    user = user,
+                    progress = progress,
+                    retoDestacado = retoPrioritario,
+                    isLoading = false
+                )}
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
-
-            _uiState.update { it.copy(
-                user = user,
-                progress = progress,
-                isLoading = false
-            )}
         }
     }
 
+    /**
+     * Lógica para el minijuego o botones de prueba de XP.
+     */
     fun ganarExperiencia(tipo: String) {
         val uid = userId ?: return
         viewModelScope.launch {
@@ -74,20 +92,64 @@ class HomeViewModel @Inject constructor(
             }
 
             if (puntos > 0) {
-                // 4. Usamos el UseCase para actualizar XP y Nivel
                 agregarXpUseCase(uid, puntos)
-
-                // 5. IMPORTANTE: Refrescamos los datos después de ganar XP
-                // para que la CardInf se actualice (Igual que el perfilBiometrico)
-                cargarDatos()
+                cargarDatos() // Refresca para actualizar la CardInf y Nivel
             }
+        }
+    }
+
+    /**
+     * Permite actualizar el reto desde la CardRetosD de la Home.
+     */
+    fun actualizarProgresoReto(reto: Challenger) {
+        val uid = userId ?: return
+        viewModelScope.launch {
+            val nuevoProgreso = reto.currentValue + 1
+            val estaCompletado = nuevoProgreso >= reto.targetValue
+            val nuevoEstado = if (estaCompletado) "COMPLETED" else "PROGRESSO"
+
+            val retoActualizado = reto.copy(
+                currentValue = nuevoProgreso.coerceAtMost(reto.targetValue),
+                status = nuevoEstado
+            )
+
+            // Actualizamos en DB de retos
+            challengeRepository.updateReto(retoActualizado)
+
+            // Si se acaba de completar, enviamos XP
+            if (estaCompletado) {
+                agregarXpUseCase(uid, 80)
+            }
+
+            // Recargamos datos para que la Home refleje el cambio (CardInf y desaparición de reto)
+            cargarDatos()
+        }
+    }
+
+    /**
+     * Fuerza el completado del reto (LongClick).
+     */
+    fun completarRetoInstantaneo(reto: Challenger) {
+        val uid = userId ?: return
+        viewModelScope.launch {
+            val retoCompletado = reto.copy(
+                currentValue = reto.targetValue,
+                status = "COMPLETED"
+            )
+            challengeRepository.updateReto(retoCompletado)
+            agregarXpUseCase(uid, 80)
+            cargarDatos()
         }
     }
 }
 
-// 6. El State para la Home
+/**
+ * Estado unificado para la HomeScreen
+ */
 data class HomeUiState(
     val user: User? = null,
     val progress: Progress? = null,
-    val isLoading: Boolean = true
+    val retoDestacado: Challenger? = null,
+    val isLoading: Boolean = true,
+    val error: String? = null
 )

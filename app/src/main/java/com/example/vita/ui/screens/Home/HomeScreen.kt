@@ -14,13 +14,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.vita.ui.components.CardGame
 import com.example.vita.ui.components.CardInf
+import com.example.vita.ui.components.retos.CardRetosD
 import com.example.vita.ui.screens.ChatBot.ChatBotFab
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    // 1. Recolectamos el estado unificado (como en tu Perfil)
+    // Recolectamos el estado unificado del ViewModel
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -31,11 +32,11 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(paddingValues),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp), // Margen lateral consistente
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
                     text = "¡Bienvenido a VitaGame!",
@@ -43,49 +44,85 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                // 2. Lógica de UI basada en uiState.isLoading
-                if (uiState.isLoading) {
-                    // Muestra el indicador mientras 'cargarDatos' hace su magia
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    // 3. Si no está cargando, verificamos que los datos no sean nulos
-                    val user = uiState.user
-                    val progress = uiState.progress
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    if (user != null && progress != null) {
-                        CardInf(
-                            user = user,
-                            progress = progress
-                        )
-                    } else {
-                        // Caso de error: No se encontraron datos tras cargar
+                // Lógica principal de UI según el estado
+                when {
+                    uiState.isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+
+                    uiState.error != null -> {
                         Text(
-                            "Error al cargar datos",
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.error
+                            text = "Error: ${uiState.error}",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+
+                    else -> {
+                        // 1. Tarjeta de Información (Nivel, XP, Avatar)
+                        uiState.user?.let { user ->
+                            uiState.progress?.let { progress ->
+                                CardInf(
+                                    user = user,
+                                    progress = progress
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // 2. Sección del Reto Prioritario
+                        uiState.retoDestacado?.let { reto ->
+                            Text(
+                                text = "Reto en curso",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.fillMaxWidth().padding(start = 4.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Usando tu componente personalizado
+                            CardRetosD(
+                                challenger = reto,
+                                onUpdateClick = { viewModel.actualizarProgresoReto(reto) },
+                                onLongClick = { viewModel.completarRetoInstantaneo(reto) }
+                            )
+                        } ?: run {
+                            // Si no hay retos disponibles
+                            Text(
+                                text = "No hay retos pendientes por ahora. ¡Buen trabajo!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // 3. Tarjeta de Actividad / Minijuego
+                        CardGame(
+                            titulo = "Minijuego de Velocidad",
+                            descripcion = "¡Gana XP extra completando tus retos diarios!",
+                            onclic = {
+                                viewModel.ganarExperiencia("GODOT")
+                            }
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                CardGame(
-                    titulo = "Minijuego de Velocidad",
-                    descripcion = "¡Gana XP actualizando tu progreso!",
-                    onclic = {
-                        // Al hacer clic, el ViewModel actualiza la DB y llama a cargarDatos()
-                        viewModel.ganarExperiencia("GODOT")
-                    }
-                )
+                // Espacio extra al final para que el FAB no tape contenido
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
 
-        // Botón del ChatBot siempre visible
+        // FAB del ChatBot posicionado sobre el contenido
         Box(
             modifier = Modifier
                 .fillMaxSize()

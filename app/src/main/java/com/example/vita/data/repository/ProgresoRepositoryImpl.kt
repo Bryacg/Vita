@@ -49,4 +49,15 @@ class ProgresoRepositoryImpl @Inject constructor(
     override suspend fun resetearRacha(uid: String) = withContext(Dispatchers.IO) {
         dao.resetStreak(uid)
     }
+    override suspend fun getProgresoPorFecha(uid: String, fecha: Long): Progress? = withContext(Dispatchers.IO) {
+        dao.getProgressByDate(uid, fecha)?.toDomain()
+    }
+
+    override suspend fun getTotalXpDeSiempre(uid: String): Int = withContext(Dispatchers.IO) {
+        dao.getTotalXp(uid) ?: 0
+    }
+
+    override suspend fun agregarXpHoy(uid: String, xp: Int, fecha: Long) = withContext(Dispatchers.IO) {
+        dao.addXpHoy(uid, xp, fecha)
+    }
 }
