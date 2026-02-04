@@ -5,9 +5,7 @@ import com.example.vita.data.mapper.toDomain
 import com.example.vita.data.mapper.toEntity
 import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.repository.ChallengeRepository
-import com.example.vita.di.RetosApi
 import com.example.vita.domain.usecase.retos.GenerarRetosIAUseCase
-import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.util.Log
@@ -53,8 +51,9 @@ class ChallengeRepositoryImpl @Inject constructor(
         challengeDao.insertChallenges(listOf(reto.toEntity()))
     }
 
-    override suspend fun updateProgress(id: Long, progress: Int) = withContext(Dispatchers.IO) {
-        challengeDao.updateProgress(id, progress)
+    override suspend fun updateReto(challenger: Challenger) = withContext(Dispatchers.IO) {
+        val entity = challenger.toEntity()
+        challengeDao.updateChallenger(entity)
     }
 
     override suspend fun getActiveChallenges(uid: String): List<Challenger> = withContext(Dispatchers.IO) {

@@ -40,7 +40,7 @@ class ObtenerRetosNutricionalUseCase @Inject constructor(
             val respuestaIA = enviarMensajeChatUseCase(
                 ChatMessage(sender = "user", content = prompt)
             )
-
+            println("DEBUG_IA_RESPONSE: ${respuestaIA.content}")
             // Usamos respuestaIA.content que contiene el String del JSON generado por Gemini
             parsearRetosIA(respuestaIA.content, uid)
         } catch (e: Exception) {

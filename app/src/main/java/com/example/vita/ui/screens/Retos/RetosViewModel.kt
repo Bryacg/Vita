@@ -18,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class RetosViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val repository: com.example.vita.domain.repository.ChallengeRepository // Inyectamos el repo
+    private val repository: com.example.vita.domain.repository.ChallengeRepository, // Inyectamos el repo
+    private val actualizarProgresoRetoUseCase: ActualizarProgresoRetoUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RetosUiState())
@@ -34,38 +35,58 @@ class RetosViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val uid = authRepository.getCurrentUserId() ?: return@launch
+                val retosDB = repository.getActiveChallenges(uid)
 
-                // 1. Primero verificamos si YA existen retos en la Base de Datos
-                val retosExistentes = repository.getActiveChallenges(uid)
+                // USAR .map { it.copy() } garantiza que cada objeto sea nuevo
+                // USAR .toList() garantiza que la lista sea una nueva instancia
+                val listaNueva = retosDB.map { it.copy() }.toList()
 
-                if (retosExistentes.isEmpty()) {
-                    // 2. SOLO si está vacía, llamamos a la IA
-                    android.util.Log.d("VITA_LOG", "DB vacía, generando retos nuevos...")
-                    repository.generarYGuardarRetos(uid, "Usuario")
-
-                    // 3. Volvemos a consultar para obtener los nuevos
-                    val nuevosRetos = repository.getActiveChallenges(uid)
-                    _uiState.update { it.copy(retos = nuevosRetos, isLoading = false) }
-                } else {
-                    // 4. Si ya había retos, simplemente los mostramos
-                    android.util.Log.d("VITA_LOG", "Retos encontrados, saltando generación IA")
-                    _uiState.update { it.copy(retos = retosExistentes, isLoading = false) }
-                }
-
+                _uiState.update { it.copy(
+                    retos = listaNueva,
+                    isLoading = false
+                ) }
+                android.util.Log.d("VITA_LOG", "Lista refrescada: ${listaNueva.size} ítems")
             } catch (e: Exception) {
-                android.util.Log.e("VITA_LOG", "Error: ${e.message}")
                 _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
-    fun actualizarProgreso(retoId: Long, nuevoProgreso: Int) {
+    fun actualizarProgresoReto(reto: Challenger) {
         viewModelScope.launch {
-            repository.updateProgress(retoId, nuevoProgreso)
-            // Después de actualizar, recargamos para ver los cambios
-            val uid = authRepository.getCurrentUserId() ?: return@launch
-            val actualizados = repository.getActiveChallenges(uid)
-            _uiState.update { it.copy(retos = actualizados) }
+            // 1. Calculamos el nuevo valor de progreso
+            val nuevoProgreso = reto.currentValue + 1
+
+            // 2. Determinamos si el reto ya se completó
+            val nuevoEstado = if (nuevoProgreso >= reto.targetValue) "COMPLETED" else "PROGRESSO"
+
+            // 3. Creamos una copia del objeto con los datos actualizados
+            val retoActualizado = reto.copy(
+                currentValue = nuevoProgreso.coerceAtMost(reto.targetValue),
+                status = nuevoEstado
+            )
+
+            // 4. Usamos el UseCase para guardar en la base de datos
+            // Asegúrate de tener inyectado ActualizarProgresoRetoUseCase
+            actualizarProgresoRetoUseCase(retoActualizado)
+
+            // 5. Refrescamos la lista local para que la UI se actualice
+            cargarRetos()
+        }
+    }
+    fun completarRetoInstantaneo(reto: Challenger) {
+        viewModelScope.launch {
+            // Creamos la copia con el valor máximo y estado completado
+            val retoCompletado = reto.copy(
+                currentValue = reto.targetValue,
+                status = "COMPLETED"
+            )
+
+            // Persistimos en la base de datos
+            actualizarProgresoRetoUseCase(retoCompletado)
+
+            // Refrescamos la UI
+            cargarRetos()
         }
     }
 }

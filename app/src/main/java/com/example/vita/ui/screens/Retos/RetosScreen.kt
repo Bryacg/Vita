@@ -1,27 +1,20 @@
 package com.example.vita.ui.screens.Retos
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.vita.ui.components.retos.CardRetos
+import com.example.vita.ui.components.retos.CardRetosD // Asegúrate de importar tu nueva Card
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
@@ -34,53 +27,79 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "¡Retos y Desafíos!", fontWeight = FontWeight.Bold)
+        // Encabezado principal
+        Text(
+            text = "Centro de Desafíos",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-        // Indicadores de Depuración (Útiles para confirmar el éxito)
-        Text(text = "Total en Base de Datos: ${uiState.retos.size}", color = androidx.compose.ui.graphics.Color.Red)
-
-        // 1. Mostrar carga si la IA está trabajando
+        // Estado de carga con diseño mejorado
         if (uiState.isLoading) {
-            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-            Text("Gemini está creando tus retos...")
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp)
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Diseñando tus retos con IA...", style = MaterialTheme.typography.bodyMedium)
+            }
         }
 
-        // Botones de filtro
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Button(
+        // Selector de tipo de reto (Filtros)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = filtroSeleccionado == "DIARIO",
                 onClick = { filtroSeleccionado = "DIARIO" },
-                modifier = Modifier.weight(1f).padding(4.dp),
-                enabled = filtroSeleccionado != "DIARIO"
-            ) { Text("Diarios") }
-
-            Button(
+                label = { Text("Diarios") },
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = filtroSeleccionado == "SEMANAL",
                 onClick = { filtroSeleccionado = "SEMANAL" },
-                modifier = Modifier.weight(1f).padding(4.dp),
-                enabled = filtroSeleccionado != "SEMANAL"
-            ) { Text("Semanales") }
+                label = { Text("Semanales") },
+                modifier = Modifier.weight(1f)
+            )
         }
 
-        // Listado dinámico con filtrado insensible a mayúsculas/minúsculas
+        // Lógica de filtrado
         val retosFiltrados = uiState.retos.filter {
             it.type.equals(filtroSeleccionado, ignoreCase = true)
         }
-        android.util.Log.d("VITA_LOG", "Lista total: ${uiState.retos.size}, Filtrados: ${retosFiltrados.size}")
 
+        // Mensaje cuando no hay datos
         if (retosFiltrados.isEmpty() && !uiState.isLoading) {
-            Text(
-                text = "No hay retos $filtroSeleccionado disponibles.",
-                modifier = Modifier.padding(16.dp),
-                color = androidx.compose.ui.graphics.Color.Gray
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No tienes retos ${filtroSeleccionado.lowercase()}s activos.",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
         }
 
+        // Renderizado de tarjetas usando el objeto Challenger completo
+        // Dentro de RetosScreen.kt
         retosFiltrados.forEach { reto ->
-            CardRetos(
-                titulo = reto.name,
-                descripcion = reto.description,
-                progreso = reto.currentValue.toString(),
-                numeroRetos = reto.targetValue.toString()
-            )
+            // Usamos key para que Compose sepa que este elemento debe reaccionar a cambios
+            key(reto.id, reto.currentValue, reto.status) {
+                CardRetosD(
+                    challenger = reto,
+                    onUpdateClick = { viewModel.actualizarProgresoReto(reto) },
+                    onLongClick = { viewModel.completarRetoInstantaneo(reto) }
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }

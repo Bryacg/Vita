@@ -1,27 +1,28 @@
 package com.example.vita.data.local.dao
 import androidx.room.*
 import com.example.vita.data.local.entities.ChallengeEntity
+import com.example.vita.domain.model.Challenger
 
 @Dao
 interface ChallengeDao {
-    //ingresar rewtos
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChallenges(challenges: List<ChallengeEntity>)
 
-    // Obtiene los desafíos activos de un usuario.
-    @Query("SELECT * FROM challenge WHERE userId = :uid AND (status = 'ACTIVE' OR status = 'ACTIVO')  ")
+    // Incluimos PROGRESSO para que no desaparezcan al actualizarse
+    @Query("""
+        SELECT * FROM challenge 
+        WHERE userId = :uid 
+        AND status IN ('ACTIVE', 'ACTIVO', 'PROGRESSO')
+        ORDER BY deadline ASC
+    """)
     suspend fun getActiveChallenges(uid: String): List<ChallengeEntity>
 
+    @Update
+    suspend fun updateChallenger(challenger: ChallengeEntity)
 
-    // Actualiza el progreso actual de un desafío.
-
-    @Query("UPDATE challenge SET currentValue = :currentValue WHERE id = :challengeId ")
-    suspend fun updateProgress(challengeId: Long, currentValue: Int)
-
-    // Marca un desafío como completado.
     @Query("UPDATE challenge SET status = 'COMPLETED' WHERE id = :challengeId")
     suspend fun completeChallenge(challengeId: Long)
-    // Elimina un desafío.
+
     @Query("DELETE FROM challenge WHERE id = :challengeId")
     suspend fun deleteChallenge(challengeId: Long)
 }
