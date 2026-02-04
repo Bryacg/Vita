@@ -1,5 +1,8 @@
 package com.example.vita.ui.screens.Profile
 
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.vita.ui.components.profile.CardFoodPreferences
 import com.example.vita.ui.components.profile.CardUser
+import com.example.vita.ui.components.profile.SeccionRecordatoriosHabitos
 import com.example.vita.ui.components.profile.perfilBiometrico
 
 @Composable
@@ -30,6 +34,13 @@ fun ProfileScreen(
     onLogoutSuccess: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Lanzador para solicitar permisos de notificación (Android 13+)
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        // Opcional: Manejar si se rechaza el permiso
+    }
 
     Column(
         modifier = Modifier
@@ -40,23 +51,18 @@ fun ProfileScreen(
         if (uiState.isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
-            // 1. Identidad: Quién soy, nivel y progreso
+            // 1. Identidad
             CardUser(user = uiState.user, profile = uiState.profile)
 
-            // 2. Biometría: Mis datos físicos (Suele ir primero por relevancia)
+            // 2. Biometría
             perfilBiometrico(
                 profile = uiState.profile,
                 onGuardar = { peso, altura, edad, gender ->
-                    viewModel.guardarDatosFisicos(
-                        peso = peso,
-                        altura = altura,
-                        edad = edad,
-                        genero = gender
-                    )
+                    viewModel.guardarDatosFisicos(peso, altura, edad, gender)
                 }
             )
 
-            // 3. Preferencias: Configuración específica de alimentación
+            // 3. Preferencias Alimentarias
             CardFoodPreferences(
                 preferences = uiState.foodPreferences,
                 onAddPreference = { name, type ->
@@ -67,9 +73,27 @@ fun ProfileScreen(
                 }
             )
 
+            // 4. SECCIÓN DE RECORDATORIOS CORREGIDA
+            // Pasamos los valores del uiState para que no se reinicien al navegar
+            SeccionRecordatoriosHabitos(
+                aguaActivo = uiState.aguaRecordatorioActivo,
+                aguaHora = uiState.aguaHora,
+                caminarActivo = uiState.caminarRecordatorioActivo,
+                caminarHora = uiState.caminarHora,
+                onCambioRecordatorio = { tipo, activo, horaStr ->
+                    // Solicitar permiso dinámicamente si intenta activar
+                    if (activo && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+
+                    // LLAMADA CORREGIDA: Usamos el nombre que definimos en el ViewModel
+                    viewModel.actualizarRecordatorio(tipo, activo, horaStr)
+                }
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 4. Acción Crítica: Cerrar Sesión
+            // 5. Cerrar Sesión
             Button(
                 onClick = {
                     viewModel.cerrarSesion { onLogoutSuccess() }
@@ -84,7 +108,7 @@ fun ProfileScreen(
                 Text("Cerrar Sesión", color = MaterialTheme.colorScheme.onError)
             }
 
-            Spacer(modifier = Modifier.height(24.dp)) // Espacio final para que no pegue al borde
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
