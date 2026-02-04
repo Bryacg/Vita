@@ -28,7 +28,7 @@ object NetworkModule {
     fun provideChatModel(): GenerativeModel {
         return GenerativeModel(
             // Cambiamos a la versión específica estable
-            modelName = "gemini-5.5-flash-lite",
+            modelName = "gemini-2.5-flash-lite",
             apiKey = "AIzaSyAw1eCtNzrzYwj9-Pw6nBRWktHJMHrQS2Y"
         )
     }

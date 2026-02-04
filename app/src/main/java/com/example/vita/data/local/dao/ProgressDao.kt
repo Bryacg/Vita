@@ -1,9 +1,15 @@
 package com.example.vita.data.local.dao
+
 import androidx.room.*
 import com.example.vita.data.local.entities.ProgressEntity
+import kotlinx.coroutines.flow.Flow // Importación necesaria
 
 @Dao
 interface ProgressDao {
+    // 1. FUNCIÓN FALTANTE: Permite la reactividad en la CardInf
+    @Query("SELECT * FROM progress WHERE userId = :uid LIMIT 1")
+    fun getProgresoStream(uid: String): Flow<ProgressEntity?> // SIN 'suspend'
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgress(progress: ProgressEntity)
 
