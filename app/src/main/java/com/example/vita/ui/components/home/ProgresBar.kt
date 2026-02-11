@@ -1,4 +1,4 @@
-package com.example.vita.ui.components
+package com.example.vita.ui.components.home
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height

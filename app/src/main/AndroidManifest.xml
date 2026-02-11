@@ -13,6 +13,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Vita">
+        <meta-data
+            android:name="org.godotengine.plugin.v1.GodotAndroid"
+            android:value="com.example.vita.data.remote.godot.GodotVitaPlugin"/>
 
         <activity
             android:name=".MainActivity"

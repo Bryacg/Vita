@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.vita.domain.model.Challenger
-import com.example.vita.ui.components.LineaBar
+import com.example.vita.ui.components.home.LineaBar
 import java.text.SimpleDateFormat
 import java.util.*
 

@@ -52,7 +52,10 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideGamesRepository(dao: GameResultDao): GamesRepository = GamesRepositoryImpl(dao)
+    fun provideGamesRepository(
+        gameDao: GameDao,   // Hilt busca esto en DatabaseModule
+        userDao: UserDao    // <--- AGREGAMOS ESTO: Ahora Hilt inyectará el UserDao aquí
+    ): GameRepository = GameRepositoryImpl(gameDao, userDao) // Pasamos ambos al constructor
 
     @Provides
     @Singleton
@@ -61,4 +64,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideProgresoRepository(dao: ProgressDao): ProgresoRepository = ProgresoRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideAchievementRepository(
+        dao: ArchivementDao // Hilt ya sabe proveer el Dao desde DatabaseModule
+    ): AchievementRepository = AchievementRepositoryImpl(dao) // CORREGIDO: Sin los dos puntos ':'
 }

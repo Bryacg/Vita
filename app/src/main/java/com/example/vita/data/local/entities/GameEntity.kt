@@ -9,19 +9,19 @@ import androidx.room.PrimaryKey
     foreignKeys = [
         ForeignKey(
             entity = UserEntity::class,
-            parentColumns = ["idUsuario"],
+            parentColumns = ["idUsuario"], // Debe coincidir con el PK de UserEntity
             childColumns = ["userId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [Index("userId")]
 )
-data class GameResultEntity(
+data class GameEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val userId: String,
-    val name: String,      // Nombre del evento
-    val weight: Int,      // Peso o importancia del evento.
-    val xpEarned: Int,    // Experiencia ganada por el evento.
-    val date: Long       // Fecha del evento.
+    val name: String,      // Nombre del juego (ej: "AtrapaSalud")
+    val weight: Int,       // Importancia
+    val xpEarned: Int,     // XP ganada
+    val date: Long         // Timestamp
 )

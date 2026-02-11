@@ -54,5 +54,7 @@ object DatabaseModule {
     fun provideChallengeDao(db: AppDatabase): ChallengeDao = db.challengeDao()
 
     @Provides
-    fun provideGameResultDao(db: AppDatabase): GameResultDao = db.gameResultDao()
+    fun provideGameResultDao(db: AppDatabase): GameDao {
+        return db.gameResultDao()  // Verifica que en AppDatabase el método se llame así
+    }
 }

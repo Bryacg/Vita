@@ -2,23 +2,26 @@ package com.example.vita.ui.screens.Profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.vita.domain.model.Food
-import com.example.vita.domain.model.FoodPreference
-import com.example.vita.domain.model.Profile
-import com.example.vita.domain.model.User
-import com.example.vita.domain.repository.AuthRepository
-import com.example.vita.domain.repository.FoodRepository
-import com.example.vita.domain.repository.ProfileRepository
-import com.example.vita.domain.repository.UserRepository
+import com.example.vita.domain.model.*
+import com.example.vita.domain.repository.*
 import com.example.vita.domain.usecase.auth.SignOutUseCase
 import com.example.vita.domain.usecase.perfil.ManageReminderUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+// 1. Definimos las "Reglas de Juego" para los logros
+object AchievementConstants {
+    val LISTA_LOGROS_BASE = listOf(
+        // Nombre, Descripción, Requisito (valor a comparar)
+        Triple("Nivel Principiante", "Alcanza el nivel 2", 2),
+        Triple("Maestro Gourmet", "Agrega 3 o más preferencias alimentarias", 3),
+        Triple("Perfil Completo", "Registra tus datos biométricos", 1), // 1 si el perfil no es null
+        Triple("Racha de Agua", "Activa los recordatorios de hidratación", 1)
+    )
+}
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -26,6 +29,7 @@ class ProfileViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val foodRepository: FoodRepository,
     private val authRepository: AuthRepository,
+    private val achievementRepository: AchievementRepository,
     private val signOutUseCase: SignOutUseCase,
     private val manageReminderUseCase: ManageReminderUseCase
 ) : ViewModel() {
@@ -39,79 +43,83 @@ class ProfileViewModel @Inject constructor(
 
     fun cargarDatos() {
         viewModelScope.launch {
-            val uid = authRepository.getCurrentUserId() ?: return@launch
-            val user = userRepository.getUserById(uid)
-            val profile = profileRepository.getProfileByUserId(uid)
-            val preferences = foodRepository.getUserFoodPreferences(uid)
+            try {
+                val uid = authRepository.getCurrentUserId() ?: return@launch
 
-            // LEER LOS ESTADOS GUARDADOS DEL DISCO
-            val (aguaActivo, aguaHora) = manageReminderUseCase.obtenerEstadoGuardado("agua")
-            val (caminarActivo, caminarHora) = manageReminderUseCase.obtenerEstadoGuardado("caminar")
+                // Carga en paralelo
+                val userDef = async { userRepository.getUserById(uid) }
+                val profileDef = async { profileRepository.getProfileByUserId(uid) }
+                val prefDef = async { foodRepository.getUserFoodPreferences(uid) }
 
-            _uiState.update { current ->
-                current.copy(
-                    user = user,
-                    profile = profile,
-                    foodPreferences = preferences,
-                    isLoading = false,
-                    // Aplicamos los valores recuperados
-                    aguaRecordatorioActivo = aguaActivo,
-                    aguaHora = aguaHora,
-                    caminarRecordatorioActivo = caminarActivo,
-                    caminarHora = caminarHora
-                )
+                val user = userDef.await()
+                val profile = profileDef.await()
+                val preferences = prefDef.await()
+
+                // Recordatorios
+                val (aguaActivo, aguaHora) = manageReminderUseCase.obtenerEstadoGuardado("agua")
+                val (caminarActivo, caminarHora) = manageReminderUseCase.obtenerEstadoGuardado("caminar")
+
+                // 2. LÓGICA DE COMPARACIÓN DINÁMICA
+                // Generamos la lista de logros comparando los datos actuales
+                val logrosCalculados = AchievementConstants.LISTA_LOGROS_BASE.mapIndexed { index, (nombre, desc, meta) ->
+                    val estaDesbloqueado = when (nombre) {
+                        "Nivel Principiante" -> (user?.currentLevel?: 1) >= meta
+                        "Maestro Gourmet" -> preferences.size >= meta
+                        "Perfil Completo" -> profile != null
+                        "Racha de Agua" -> aguaActivo
+                        else -> false
+                    }
+
+                    Achievement(
+                        id = index.toLong(),
+                        userId = uid,
+                        name = nombre,
+                        description = desc,
+                        unlocked = estaDesbloqueado
+                    )
+                }
+
+                _uiState.update { current ->
+                    current.copy(
+                        user = user,
+                        profile = profile,
+                        foodPreferences = preferences,
+                        logros = logrosCalculados, // <--- Lista calculada al vuelo
+                        isLoading = false,
+                        aguaRecordatorioActivo = aguaActivo,
+                        aguaHora = aguaHora,
+                        caminarRecordatorioActivo = caminarActivo,
+                        caminarHora = caminarHora
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
+                e.printStackTrace()
             }
         }
     }
 
-    // --- LÓGICA DE RECORDATORIOS ---
+    // --- MÉTODOS DE ACTUALIZACIÓN (Llaman a cargarDatos para refrescar logros) ---
 
     fun actualizarRecordatorio(tipo: String, activo: Boolean, horaStr: String) {
-        // 1. Actualizamos el estado de la UI (Memoria RAM)
-        _uiState.update { current ->
-            if (tipo.lowercase() == "agua") {
-                current.copy(aguaRecordatorioActivo = activo, aguaHora = horaStr)
-            } else {
-                current.copy(caminarRecordatorioActivo = activo, caminarHora = horaStr)
-            }
-        }
-
-        // 2. Programamos la alarma en el sistema a través del UseCase
-        try {
-            val partes = horaStr.split(":")
-            if (partes.size == 2) {
-                val h = partes[0].toInt()
-                val m = partes[1].toInt()
-                manageReminderUseCase(tipo, activo, h, m)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        viewModelScope.launch {
+            try {
+                val partes = horaStr.split(":")
+                if (partes.size == 2) {
+                    manageReminderUseCase(tipo, activo, partes[0].toInt(), partes[1].toInt())
+                    cargarDatos() // Refrescamos para ver si desbloqueó "Racha de Agua"
+                }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
-
-    // --- MÉTODOS DE DATOS ---
 
     fun agregarPreferenciaAlimentaria(foodName: String, type: String) {
         viewModelScope.launch {
             val uid = authRepository.getCurrentUserId() ?: return@launch
             val food = foodRepository.getFoodByName(foodName)
-            val foodId = food?.id ?: foodRepository.saveFood(Food(id = 0, name = foodName, category = "General"))
-
-            val newPreference = FoodPreference(
-                id = 0,
-                userId = uid,
-                foodId = foodId,
-                preferenceType = type
-            )
-            foodRepository.savePreference(newPreference)
-            cargarDatos()
-        }
-    }
-
-    fun eliminarPreferenciaAlimentaria(preference: FoodPreference) {
-        viewModelScope.launch {
-            foodRepository.deletePreference(preference)
-            cargarDatos()
+            val foodId = food?.id ?: foodRepository.saveFood(Food(0, foodName, "General"))
+            foodRepository.savePreference(FoodPreference(0, uid, foodId, type))
+            cargarDatos() // Refrescamos para ver si desbloqueó "Maestro Gourmet"
         }
     }
 
@@ -119,15 +127,14 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             val uid = authRepository.getCurrentUserId() ?: return@launch
             val currentId = _uiState.value.profile?.id ?: 0
-            val perfil = Profile(
-                id = currentId,
-                userId = uid,
-                height = altura,
-                weight = peso,
-                age = edad,
-                gender = genero
-            )
-            profileRepository.saveProfile(perfil)
+            profileRepository.saveProfile(Profile(currentId, uid, altura, peso, edad, genero))
+            cargarDatos() // Refrescamos para ver si desbloqueó "Perfil Completo"
+        }
+    }
+
+    fun eliminarPreferenciaAlimentaria(preference: FoodPreference) {
+        viewModelScope.launch {
+            foodRepository.deletePreference(preference)
             cargarDatos()
         }
     }
@@ -144,8 +151,8 @@ data class ProfileUiState(
     val user: User? = null,
     val profile: Profile? = null,
     val foodPreferences: List<Pair<Food, FoodPreference>> = emptyList(),
+    val logros: List<Achievement> = emptyList(),
     val isLoading: Boolean = true,
-    // Estados de misiones
     val aguaRecordatorioActivo: Boolean = false,
     val aguaHora: String = "09:00",
     val caminarRecordatorioActivo: Boolean = false,

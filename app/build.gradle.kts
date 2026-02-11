@@ -119,6 +119,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     // SDK oficial de Google Generative AI
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    //Vico
+    implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
+    //godot
+    implementation("org.godotengine:godot:4.2.0.stable")
 }
 
 // Recomendado: agrega al final para evitar warnings de resolución de dependencias

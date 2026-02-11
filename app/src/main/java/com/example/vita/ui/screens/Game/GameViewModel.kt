@@ -1,10 +1,11 @@
 package com.example.vita.ui.screens.Game
 
-
+import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.vita.domain.model.GameResult
-import com.example.vita.domain.usecase.juegos.ProcesarResultadoJuegoUseCase
+import com.example.vita.data.remote.godot.GameResultBuffer
+import com.example.vita.domain.usecase.godot.ProcesarResultadoJuegoUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,23 +22,41 @@ class GameViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
-    fun procesarResultado(userId: String, nombreJuego: String, xpGanada: Int) {
+    fun abrirJuego(context: Context) {
+        val packageName = "com.example.atrapasalud"
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+
+        if (intent != null) {
+            GameResultBuffer.ultimoResultado = null // Limpiar antes de empezar
+            context.startActivity(intent)
+        } else {
+            Log.e("Vita", "El juego no está instalado")
+            _uiState.update { it.copy(mensajeResultado = "Error: El juego no está instalado") }
+        }
+    }
+
+    fun verificarResultadoTrasRegresar() {
         viewModelScope.launch {
-            // Creamos el objeto que el UseCase espera
-            val resultado = GameResult(
-                userId = userId,
-                name = nombreJuego,  // <--- Cambiado de gameName a name
-                weight = 1,          // Asegúrate de incluir este campo que definimos antes
-                xpEarned = xpGanada,
-                date = System.currentTimeMillis()
-            )
+            val resultadoString = GameResultBuffer.ultimoResultado
 
-            // Ahora pasamos el objeto 'resultado' (GameResult) en lugar de los strings sueltos
-            val result = procesarResultadoJuegoUseCase(resultado)
+            if (resultadoString != null) {
+                // Llamamos al UseCase pasando el String
+                procesarResultadoJuegoUseCase(resultadoString)
 
-            _uiState.update { it.copy(lastResult = result) }
+                // Actualizamos la UI
+                _uiState.update {
+                    it.copy(mensajeResultado = "¡Procesado: $resultadoString!")
+                }
+
+                // Importante: Limpiar el buffer
+                GameResultBuffer.ultimoResultado = null
+            }
         }
     }
 }
 
-data class GameUiState(val lastResult: GameResult? = null)
+// Estado de la UI simplificado
+data class GameUiState(
+    val mensajeResultado: String? = null,
+    val isLoading: Boolean = false
+)

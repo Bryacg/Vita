@@ -1,4 +1,4 @@
-package com.example.vita.ui.components
+package com.example.vita.ui.components.home
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement

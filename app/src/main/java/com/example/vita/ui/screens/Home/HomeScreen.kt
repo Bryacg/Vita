@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.vita.ui.components.CardGame
-import com.example.vita.ui.components.CardInf
+import com.example.vita.ui.components.home.CardInf
 import com.example.vita.ui.components.retos.CardRetosD
 import com.example.vita.ui.screens.ChatBot.ChatBotFab
 
