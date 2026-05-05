@@ -29,7 +29,7 @@ object NetworkModule {
         return GenerativeModel(
             // Cambiamos a la versión específica estable
             modelName = "gemini-2.5-flash-lite",
-            apiKey = "AIzaSyAw1eCtNzrzYwj9-Pw6nBRWktHJMHrQS2Y"
+            apiKey = ""
         )
     }
 
@@ -40,7 +40,7 @@ object NetworkModule {
         return GenerativeModel(
             // CAMBIO IMPORTANTE: Usamos gemini-1.5-flash-latest para evitar el error 404
             modelName = "gemini-5.5-flash-lite",
-            apiKey = "AIzaSyCC8BpGecpr7Ycn8yiJtcUJOD0Kc6O-qw8"
+            apiKey = ""
         )
     }
 }
