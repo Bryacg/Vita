@@ -6,9 +6,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProgressDao {
-
-    // --- CONSULTAS DE LECTURA ---
-
     @Query("SELECT * FROM progress WHERE userId = :uid LIMIT 1")
     fun getProgresoStream(uid: String): Flow<ProgressEntity?>
 
@@ -21,8 +18,14 @@ interface ProgressDao {
     @Query("SELECT SUM(xp) FROM progress WHERE userId = :uid")
     suspend fun getTotalXp(uid: String): Int?
 
-
-    // --- OPERACIONES DE ESCRITURA ---
+    // ✅ Trae los registros de los últimos N días para el gráfico semanal
+    @Query("""
+        SELECT * FROM progress 
+        WHERE userId = :uid 
+        AND date >= :startDate
+        ORDER BY date ASC
+    """)
+    suspend fun getProgressLastDays(uid: String, startDate: Long): List<ProgressEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgress(progress: ProgressEntity)
@@ -42,8 +45,6 @@ interface ProgressDao {
     @Query("UPDATE progress SET streakDays = 0 WHERE userId = :uid")
     suspend fun resetStreak(uid: String)
 
-    // Mantenemos esta por compatibilidad si otros repositorios la usan,
-    // pero la recomendada ahora es addXpHoy
     @Query("UPDATE progress SET xp = xp + :xp WHERE userId = :uid")
     suspend fun addXp(uid: String, xp: Int)
 }
