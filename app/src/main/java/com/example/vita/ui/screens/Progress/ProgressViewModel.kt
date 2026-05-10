@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.example.vita.domain.usecase.progreso.*
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 
 @HiltViewModel
 class ProgressViewModel @Inject constructor(
@@ -21,6 +24,21 @@ class ProgressViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ProgressUiState())
     val uiState: StateFlow<ProgressUiState> = _uiState.asStateFlow()
+
+    val xpModelProducer = CartesianChartModelProducer()
+    val calorieModelProducer = CartesianChartModelProducer()
+
+    fun updateXpChart(data: List<Number>) {
+        xpModelProducer.tryRunTransaction {
+            lineSeries { series(data) }
+        }
+    }
+
+    fun updateCalorieChart(data: List<Number>) {
+        calorieModelProducer.tryRunTransaction {
+            columnSeries { series(data) }
+        }
+    }
 
     fun agregarXp(userId: String, xp: Int) {
         viewModelScope.launch {

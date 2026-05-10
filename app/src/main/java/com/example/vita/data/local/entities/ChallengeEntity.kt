@@ -26,5 +26,6 @@ data class ChallengeEntity(
     val targetValue: Int,    // Valor objetivo que debe alcanzarse
     val currentValue: Int = 0,  // Progreso actual del desafío.
     val status: String, // Estado del desafío: ACTIVE, COMPLETED, EXPIRED
-    val deadline: Long    // Fecha límite del desafío.
+    val deadline: Long,    // Fecha límite del desafío.
+    val createdAt: Long = System.currentTimeMillis()
 )

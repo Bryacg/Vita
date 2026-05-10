@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,9 +14,11 @@ plugins {
 android {
     namespace = "com.example.vita"
     compileSdk = 35
+
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
     }
+
     defaultConfig {
         applicationId = "com.example.vita"
         minSdk = 24
@@ -22,15 +27,30 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Recomendado: habilita vector drawables si usas icons modernos
         vectorDrawables.useSupportLibrary = true
+
+        // --- INICIO: LÓGICA PARA VARIABLES OCULTAS ---
+        val properties = Properties()
+        val propertiesFile = rootProject.file("local.properties")
+        if (propertiesFile.exists()) {
+            properties.load(FileInputStream(propertiesFile))
+        }
+
+        // Leemos cada una desde local.properties
+        val mName = properties.getProperty("modelName") ?: ""
+        val aChat = properties.getProperty("apiChatb") ?: ""
+        val aRetos = properties.getProperty("apiRetos") ?: ""
+
+        // Las registramos en BuildConfig
+        buildConfigField("String", "MODEL_NAME", "\"$mName\"")
+        buildConfigField("String", "API_CHAT", "\"$aChat\"")
+        buildConfigField("String", "API_RETOS", "\"$aRetos\"")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true           // Actívalo en release para mejor performance
-            isShrinkResources = true         // Elimina recursos no usados
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -49,9 +69,8 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
-
-
 }
 
 dependencies {
@@ -60,7 +79,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    // Compose (usando BOM para versiones consistentes)
+    // Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
@@ -78,19 +97,18 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Firebase (usa la versión más reciente estable en enero 2026 ~34.7.0+)
-    implementation(platform(libs.firebase.bom))  // Actualiza en gradle/libs.versions.toml
+    // Firebase
+    implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Google Sign-In moderno con Credential Manager (recomendado 2025–2026)
-    // Evita la versión legacy de play-services-auth (deprecada)
+    // Google Sign-In / Credentials
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.googleid)  // com.google.android.libraries.identity.googleid:googleid
+    implementation(libs.googleid)
 
-    // Room (con KSP para mejor performance que annotationProcessor)
+    // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
@@ -98,7 +116,7 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
 
-    // Networking (si usas Retrofit para OpenAI o Godot backend)
+    // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
@@ -107,7 +125,7 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
 
-    // Serialization (útil para JSON de APIs)
+    // Serialization
     implementation(libs.kotlinx.serialization.json)
 
     // Testing
@@ -115,19 +133,24 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
-    //Iconos
+
+    // Iconos y otros
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
-    // SDK oficial de Google Generative AI
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
-    //Vico
-    implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
-    //godot
-    implementation("org.godotengine:godot:4.2.0.stable")
+
+    // Godot local lib
+    implementation(files("libs/godot_lib.aar"))
+    implementation("androidx.fragment:fragment:1.3.6")
+    implementation("androidx.core:core-splashscreen:1.0.0")
+
+    // Vico Charts
+    implementation(libs.vico.core)
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
 }
 
-// Recomendado: agrega al final para evitar warnings de resolución de dependencias
 configurations.all {
     resolutionStrategy {
-        force("androidx.core:core-ktx:1.13.1")  // Ejemplo si necesitas forzar alguna versión
+        force("androidx.core:core-ktx:1.13.1")
     }
 }

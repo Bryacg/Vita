@@ -18,7 +18,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(
-        @ApplicationContext context: Context // <--- ESTA ANOTACIÓN ES OBLIGATORIA
+        @ApplicationContext context: Context //
     ): AppDatabase {
         return Room.databaseBuilder(
             context.applicationContext,

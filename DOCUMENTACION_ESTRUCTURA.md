@@ -707,7 +707,7 @@ Trabajadores de WorkManager que ejecutan tareas en segundo plano.
 - **Persistencia**: Room con KSP (no kapt)
 - **UI**: Jetpack Compose + Material 3
 - **Autenticación**: Firebase Auth + Google Sign-In
-- **Chatbot**: OpenAI API (usando librería openai-kotlin)
+- **Chatbot**: Gemini 
 - **Juegos**: Motor Godot integrado nativamente
 
 Esta estructura permite escalabilidad, testabilidad y mantenibilidad siguiendo principios SOLID y mejores prácticas de Android.

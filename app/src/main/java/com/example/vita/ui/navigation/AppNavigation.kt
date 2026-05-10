@@ -90,7 +90,11 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
             }
 
             // --- FLUJO PRINCIPAL ---
-            composable(Routes.Home.route) { HomeScreen() }
+            composable("home") {
+                // Le pasamos el navController que ya existe en tu NavHost
+                HomeScreen(navController = navController)
+            }
+
             composable(Routes.Retos.route) { val retosViewModel: RetosViewModel = hiltViewModel()
                 RetosScreen(viewModel = retosViewModel) }
             composable(Routes.Juegos.route) { GameScreen() }

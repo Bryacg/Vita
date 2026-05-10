@@ -11,8 +11,9 @@ fun ChallengeEntity.toDomain(): Challenger = Challenger(
     type = type,
     targetValue = targetValue,
     currentValue = currentValue,
-    status= status,
-    deadline = deadline
+    status = status,
+    deadline = deadline,
+    createdAt = createdAt
 )
 
 fun Challenger.toEntity() = ChallengeEntity(
@@ -23,6 +24,7 @@ fun Challenger.toEntity() = ChallengeEntity(
     type = type,
     targetValue = targetValue,
     currentValue = currentValue,
-    status= status,
-    deadline = deadline
+    status = status,
+    deadline = deadline,
+    createdAt = createdAt
 )

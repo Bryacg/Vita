@@ -1,10 +1,35 @@
 package com.example.vita.di
 
-import com.example.vita.data.local.dao.*
+import com.example.vita.data.local.dao.ArchivementDao
+import com.example.vita.data.local.dao.ChallengeDao
+import com.example.vita.data.local.dao.FoodDao
+import com.example.vita.data.local.dao.FoodPreferenceDao
+import com.example.vita.data.local.dao.GameDao
+import com.example.vita.data.local.dao.MealDao
+import com.example.vita.data.local.dao.ProgressDao
+import com.example.vita.data.local.dao.ProfileDao
+import com.example.vita.data.local.dao.UserDao
 import com.example.vita.data.remote.firebase.FirebaseAuthDataSource
-import com.example.vita.data.repository.*
-import com.example.vita.domain.repository.*
-import com.example.vita.domain.usecase.retos.GenerarRetosIAUseCase
+import com.example.vita.data.repository.AchievementRepositoryImpl
+import com.example.vita.data.repository.AuthRepositoryImpl
+import com.example.vita.data.repository.ChallengeRepositoryImpl
+import com.example.vita.data.repository.ChatRepositoryImpl
+import com.example.vita.data.repository.FoodRepositoryImpl
+import com.example.vita.data.repository.GameRepositoryImpl
+import com.example.vita.data.repository.MealRepositoryImpl
+import com.example.vita.data.repository.ProfileRepositoryImpl
+import com.example.vita.data.repository.ProgresoRepositoryImpl
+import com.example.vita.data.repository.UserRepositoryImpl
+import com.example.vita.domain.repository.AchievementRepository
+import com.example.vita.domain.repository.AuthRepository
+import com.example.vita.domain.repository.ChallengeRepository
+import com.example.vita.domain.repository.ChatRepository
+import com.example.vita.domain.repository.FoodRepository
+import com.example.vita.domain.repository.GameRepository
+import com.example.vita.domain.repository.MealRepository
+import com.example.vita.domain.repository.ProfileRepository
+import com.example.vita.domain.repository.ProgresoRepository
+import com.example.vita.domain.repository.UserRepository
 import com.google.ai.client.generativeai.GenerativeModel
 import dagger.Module
 import dagger.Provides
@@ -22,17 +47,17 @@ object RepositoryModule {
         ds: FirebaseAuthDataSource
     ): AuthRepository = AuthRepositoryImpl(ds)
 
+    // ✅ ChallengeRepository ya NO necesita GenerarRetosIAUseCase
     @Provides
     @Singleton
     fun provideChallengeRepository(
-        dao: ChallengeDao,
-        generarRetosIAUseCase: GenerarRetosIAUseCase // <--- CAMBIA ESTO
-    ): ChallengeRepository = ChallengeRepositoryImpl(dao, generarRetosIAUseCase)
+        dao: ChallengeDao
+    ): ChallengeRepository = ChallengeRepositoryImpl(dao)
 
     @Provides
     @Singleton
     fun provideChatRepository(
-        @ChatBotApi generativeModel: GenerativeModel // Usa el motor de Chat
+        @ChatBotApi generativeModel: GenerativeModel
     ): ChatRepository = ChatRepositoryImpl(generativeModel)
 
     @Provides
@@ -53,9 +78,9 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideGamesRepository(
-        gameDao: GameDao,   // Hilt busca esto en DatabaseModule
-        userDao: UserDao    // <--- AGREGAMOS ESTO: Ahora Hilt inyectará el UserDao aquí
-    ): GameRepository = GameRepositoryImpl(gameDao, userDao) // Pasamos ambos al constructor
+        gameDao: GameDao,
+        userDao: UserDao
+    ): GameRepository = GameRepositoryImpl(gameDao, userDao)
 
     @Provides
     @Singleton
@@ -68,6 +93,6 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideAchievementRepository(
-        dao: ArchivementDao // Hilt ya sabe proveer el Dao desde DatabaseModule
-    ): AchievementRepository = AchievementRepositoryImpl(dao) // CORREGIDO: Sin los dos puntos ':'
+        dao: ArchivementDao
+    ): AchievementRepository = AchievementRepositoryImpl(dao)
 }

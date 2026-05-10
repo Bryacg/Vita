@@ -1,5 +1,6 @@
 *.iml
 .gradle
+app/libs/godot_lib.aar
 /local.properties
 /.idea/caches
 /.idea/libraries

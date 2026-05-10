@@ -12,5 +12,6 @@ data class Challenger(
     val targetValue: Int,    // Valor objetivo que debe alcanzarse
     val currentValue: Int = 0,  // Progreso actual del desafío.
     val status: String, // Estado del desafío: ACTIVE, PROGRESSO , COMPLETED, EXPIRED
-    val deadline: Long
+    val deadline: Long,
+    val createdAt: Long = System.currentTimeMillis()
 )

@@ -1,5 +1,6 @@
 package com.example.vita.di
 
+import com.example.vita.BuildConfig // Asegúrate de importar tu propio BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import dagger.Module
 import dagger.Provides
@@ -27,9 +28,9 @@ object NetworkModule {
     @ChatBotApi
     fun provideChatModel(): GenerativeModel {
         return GenerativeModel(
-            // Cambiamos a la versión específica estable
-            modelName = "gemini-2.5-flash-lite",
-            apiKey = ""
+            // Usamos las variables inyectadas desde local.properties
+            modelName = BuildConfig.MODEL_NAME,
+            apiKey = BuildConfig.API_CHAT
         )
     }
 
@@ -38,9 +39,8 @@ object NetworkModule {
     @RetosApi
     fun provideRetosModel(): GenerativeModel {
         return GenerativeModel(
-            // CAMBIO IMPORTANTE: Usamos gemini-1.5-flash-latest para evitar el error 404
-            modelName = "gemini-5.5-flash-lite",
-            apiKey = ""
+            modelName = BuildConfig.MODEL_NAME,
+            apiKey = BuildConfig.API_RETOS
         )
     }
 }

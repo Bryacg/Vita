@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.repository.AuthRepository
-import com.example.vita.domain.usecase.retos.*
-import com.example.vita.domain.usecase.progreso.AgregarXpUseCase // Asegúrate de que esta ruta sea correcta
+import com.example.vita.domain.repository.ChallengeRepository
+import com.example.vita.domain.repository.UserRepository
+import com.example.vita.domain.usecase.progreso.AgregarXpUseCase
+import com.example.vita.domain.usecase.retos.ActualizarProgresoRetoUseCase
+import com.example.vita.domain.usecase.retos.GenerarYGuardarRetosUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,34 +20,62 @@ import javax.inject.Inject
 @HiltViewModel
 class RetosViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val repository: com.example.vita.domain.repository.ChallengeRepository,
+    private val userRepository: UserRepository,
+    private val challengeRepository: ChallengeRepository,
+    private val generarYGuardarRetosUseCase: GenerarYGuardarRetosUseCase,
     private val actualizarProgresoRetoUseCase: ActualizarProgresoRetoUseCase,
     private val agregarXpUseCase: AgregarXpUseCase
-) : ViewModel() { // Corregido: Heredamos correctamente de ViewModel
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RetosUiState())
     val uiState: StateFlow<RetosUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.update { it.copy(isLoading = true) }
         cargarRetos()
     }
 
     fun cargarRetos() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val uid = authRepository.getCurrentUserId() ?: return@launch
-                val retosDB = repository.getActiveChallenges(uid)
 
-                val listaNueva = retosDB.map { it.copy() }.toList()
+                // Primero intentamos traer retos activos de Room (cualquier día)
+                val retosActivos = challengeRepository.getActiveChallenges(uid)
 
-                _uiState.update { it.copy(
-                    retos = listaNueva,
-                    isLoading = false
-                ) }
-                android.util.Log.d("VITA_LOG", "Lista refrescada: ${listaNueva.size} ítems")
+                if (retosActivos.isNotEmpty()) {
+                    // Ya hay retos activos: los mostramos sin tocar la IA
+                    _uiState.update {
+                        it.copy(retos = retosActivos, isLoading = false)
+                    }
+                    return@launch
+                }
+
+                // No hay retos activos → intentamos generar (con protección anti-duplicado de hoy)
+                _uiState.update { it.copy(mensajeCarga = "Diseñando tus retos con IA...") }
+
+                val user = userRepository.getUserById(uid)
+                val nombre = user?.name ?: "Entrenador"
+
+                val resultado = generarYGuardarRetosUseCase(uid, nombre)
+
+                _uiState.update {
+                    it.copy(
+                        retos = resultado.retos,
+                        isLoading = false,
+                        mensajeCarga = null,
+                        retosNuevosGenerados = resultado.fueronGeneradosAhora
+                    )
+                }
+
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Error al cargar retos: ${e.message}",
+                        mensajeCarga = null
+                    )
+                }
             }
         }
     }
@@ -62,14 +93,10 @@ class RetosViewModel @Inject constructor(
                 status = nuevoEstado
             )
 
-            // Guardamos el progreso del reto
             actualizarProgresoRetoUseCase(retoActualizado)
 
-            // Si se completa, disparamos el UseCase de XP que actualiza 'progress' y 'users'
             if (estaCompletado) {
-                val puntos = 80
-                agregarXpUseCase(uid, puntos)
-                android.util.Log.d("VITA_LOG", "XP enviada: $puntos puntos por completar reto")
+                agregarXpUseCase(uid, 80)
             }
 
             cargarRetos()
@@ -80,25 +107,24 @@ class RetosViewModel @Inject constructor(
         viewModelScope.launch {
             val uid = authRepository.getCurrentUserId() ?: return@launch
 
-            val retoCompletado = reto.copy(
-                currentValue = reto.targetValue,
-                status = "COMPLETED"
+            actualizarProgresoRetoUseCase(
+                reto.copy(currentValue = reto.targetValue, status = "COMPLETED")
             )
-
-            actualizarProgresoRetoUseCase(retoCompletado)
-
-            // Enviamos XP al completar instantáneamente
-            val puntos = 80
-            agregarXpUseCase(uid, puntos)
-            android.util.Log.d("VITA_LOG", "XP enviada: $puntos puntos por reto instantáneo")
-
+            agregarXpUseCase(uid, 80)
             cargarRetos()
         }
+    }
+
+    // Llamado desde la UI tras mostrar el snackbar de "¡Retos nuevos!"
+    fun onRetosNuevosVisto() {
+        _uiState.update { it.copy(retosNuevosGenerados = false) }
     }
 }
 
 data class RetosUiState(
     val retos: List<Challenger> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null
+    val isLoading: Boolean = true,
+    val error: String? = null,
+    val mensajeCarga: String? = null,
+    val retosNuevosGenerados: Boolean = false // para mostrar un snackbar opcional
 )
