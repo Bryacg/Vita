@@ -13,18 +13,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.vita.ui.components.chatbot.BurbujaChat
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import com.example.vita.domain.model.ChatMessage
+
+// ✅ ChatUiState eliminado de aquí — vive en ChatBotViewModel.kt
 
 @Composable
 fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
-    // Usamos el tipo explícito para evitar errores de inferencia
     val uiState: ChatUiState by viewModel.uiState.collectAsState()
     var isExpanded by remember { mutableStateOf(false) }
     var userQuery by remember { mutableStateOf("") }
@@ -44,7 +42,6 @@ fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
                 elevation = CardDefaults.elevatedCardElevation(12.dp)
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Cabecera
                     Surface(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.fillMaxWidth()
@@ -57,25 +54,26 @@ fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
                         )
                     }
 
-                    // Lista de Mensajes
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        // Esto hace que el scroll siempre muestre lo último
-                        reverseLayout = false
+                        contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         items(uiState.messages) { msg ->
                             BurbujaChat(msg)
                         }
-
-                        // Si está cargando, mostramos un indicador visual
                         if (uiState.isLoading) {
                             item {
-                                Box(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                ) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp).align(Alignment.CenterStart),
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .align(Alignment.CenterStart),
                                         strokeWidth = 2.dp
                                     )
                                 }
@@ -83,9 +81,10 @@ fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
                         }
                     }
 
-                    // Campo de entrada
                     Row(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedTextField(
@@ -94,7 +93,7 @@ fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
                             modifier = Modifier.weight(1f),
                             placeholder = { Text("¿Qué cocinamos hoy?") },
                             shape = RoundedCornerShape(16.dp),
-                            enabled = !uiState.isLoading // Bloquear mientras piensa
+                            enabled = !uiState.isLoading
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
@@ -114,11 +113,13 @@ fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
             }
         }
 
-        // Botón FAB principal
         FloatingActionButton(
             onClick = { isExpanded = !isExpanded },
             modifier = Modifier.padding(16.dp),
-            containerColor = if (isExpanded) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary
+            containerColor = if (isExpanded)
+                MaterialTheme.colorScheme.surfaceVariant
+            else
+                MaterialTheme.colorScheme.primary
         ) {
             Icon(
                 imageVector = if (isExpanded) Icons.Default.Close else Icons.Default.AutoAwesome,
@@ -127,8 +128,3 @@ fun ChatBotFab(viewModel: ChatBotViewModel = hiltViewModel()) {
         }
     }
 }
-data class ChatUiState(
-    val messages: List<ChatMessage> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null
-)

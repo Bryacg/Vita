@@ -2,13 +2,18 @@ package com.example.vita.ui.screens.Home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.vita.core.DateTimeUtils
 import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.model.Meal
 import com.example.vita.domain.model.Progress
 import com.example.vita.domain.model.User
-import com.example.vita.domain.repository.*
+import com.example.vita.domain.repository.AuthRepository
+import com.example.vita.domain.usecase.auth.ObtenerUsuarioUseCase
+import com.example.vita.domain.usecase.comida.ObtenerComidasHoyUseCase
+import com.example.vita.domain.usecase.comida.RegistrarComidaUseCase
 import com.example.vita.domain.usecase.progreso.AgregarXpUseCase
+import com.example.vita.domain.usecase.progreso.ObtenerOCrearProgresoUseCase
+import com.example.vita.domain.usecase.retos.ActualizarProgresoRetoUseCase
+import com.example.vita.domain.usecase.retos.ObtenerRetosActivosUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,18 +21,22 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    // ✅ AuthRepository para getCurrentUserId — aceptado en MVVM+Clean
     private val authRepository: AuthRepository,
-    private val userRepository: UserRepository,
-    private val progresoRepository: ProgresoRepository,
-    private val challengeRepository: ChallengeRepository,
-    private val mealRepository: MealRepository,
+    // ✅ Solo Use Cases — sin repositorios directos
+    private val obtenerUsuarioUseCase: ObtenerUsuarioUseCase,
+    private val obtenerOCrearProgresoUseCase: ObtenerOCrearProgresoUseCase,
+    private val obtenerRetosActivosUseCase: ObtenerRetosActivosUseCase,
+    private val obtenerComidasHoyUseCase: ObtenerComidasHoyUseCase,
+    private val registrarComidaUseCase: RegistrarComidaUseCase,
+    private val actualizarProgresoRetoUseCase: ActualizarProgresoRetoUseCase,
     private val agregarXpUseCase: AgregarXpUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val userId = authRepository.getCurrentUserId()
+    private val userId get() = authRepository.getCurrentUserId()
 
     init {
         cargarDatos()
@@ -38,43 +47,29 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val user = userRepository.getUserById(uid)
-                var progress = progresoRepository.getProgreso(uid)
+                // ✅ Todo a través de Use Cases
+                val user     = obtenerUsuarioUseCase(uid)
+                val progress = obtenerOCrearProgresoUseCase(uid)
 
-                if (progress == null) {
-                    val nuevoProgreso = Progress(
-                        id = 0,
-                        userId = uid,
-                        level = 1,
-                        xp = 0,
-                        streakDays = 0,           // ✅ usuario nuevo empieza en 0
-                        bmi = 0f,
-                        weight = 0f,
-                        date = DateTimeUtils.getTodayMillis() // ✅ fecha normalizada a inicio del día
-                    )
-                    progresoRepository.insertarProgreso(nuevoProgreso)
-                    progress = nuevoProgreso
-                }
-
-                val comidasHoy = mealRepository.getMealsByDate(uid, System.currentTimeMillis())
-                val totalKcal = comidasHoy.sumOf { it.calories }
-                val promedioSalud = if (comidasHoy.isNotEmpty()) {
+                val comidasHoy   = obtenerComidasHoyUseCase(uid)
+                val totalKcal    = comidasHoy.sumOf { it.calories }
+                val promedioSalud = if (comidasHoy.isNotEmpty())
                     comidasHoy.map { it.healthyScore }.average().toInt()
-                } else 0
+                else 0
 
-                val todosLosRetos = challengeRepository.getActiveChallenges(uid)
+                val todosLosRetos  = obtenerRetosActivosUseCase(uid)
                 val retoPrioritario = todosLosRetos
                     .find { it.currentValue > 0 && it.status != "COMPLETED" }
                     ?: todosLosRetos.find { it.status != "COMPLETED" }
 
                 _uiState.update {
                     it.copy(
-                        user = user,
-                        progress = progress,
-                        retoDestacado = retoPrioritario,
-                        totalCaloriesHoy = totalKcal,
+                        user               = user,
+                        progress           = progress,
+                        retoDestacado      = retoPrioritario,
+                        totalCaloriesHoy   = totalKcal,
                         saludNutricionalHoy = promedioSalud,
-                        isLoading = false
+                        isLoading          = false
                     )
                 }
             } catch (e: Exception) {
@@ -88,14 +83,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val nuevaComida = Meal(
-                    id = 0,
-                    userId = uid,
-                    name = nombre,
-                    calories = kcal,
-                    healthyScore = salud,
+                    id = 0, userId = uid, name = nombre,
+                    calories = kcal, healthyScore = salud,
                     date = System.currentTimeMillis()
                 )
-                mealRepository.insertMeal(nuevaComida)
+                registrarComidaUseCase(nuevaComida) // ✅ UseCase
                 cargarDatos()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Error al guardar: ${e.message}") }
@@ -115,9 +107,9 @@ class HomeViewModel @Inject constructor(
     fun actualizarProgresoReto(reto: Challenger) {
         val uid = userId ?: return
         viewModelScope.launch {
-            val nuevoProgreso = (reto.currentValue + 1).coerceAtMost(reto.targetValue)
+            val nuevoProgreso  = (reto.currentValue + 1).coerceAtMost(reto.targetValue)
             val estaCompletado = nuevoProgreso >= reto.targetValue
-            challengeRepository.updateReto(
+            actualizarProgresoRetoUseCase( // ✅ UseCase
                 reto.copy(
                     currentValue = nuevoProgreso,
                     status = if (estaCompletado) "COMPLETED" else "PROGRESSO"
@@ -131,7 +123,7 @@ class HomeViewModel @Inject constructor(
     fun completarRetoInstantaneo(reto: Challenger) {
         val uid = userId ?: return
         viewModelScope.launch {
-            challengeRepository.updateReto(
+            actualizarProgresoRetoUseCase( // ✅ UseCase
                 reto.copy(currentValue = reto.targetValue, status = "COMPLETED")
             )
             agregarXpUseCase(uid, 80)

@@ -6,17 +6,24 @@ import com.example.vita.domain.model.ChatMessage
 import com.example.vita.domain.usecase.chat.EnviarMensajeChatUseCase
 import com.example.vita.domain.usecase.chat.ObtenerPromptNutricionalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// ✅ ChatUiState vive junto a su ViewModel, no en la Screen
+data class ChatUiState(
+    val messages: List<ChatMessage> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
 
 @HiltViewModel
 class ChatBotViewModel @Inject constructor(
     private val enviarMensajeChatUseCase: EnviarMensajeChatUseCase,
-    private val obtenerPromptNutricionalUseCase: ObtenerPromptNutricionalUseCase // Inyectamos el nuevo UseCase
+    private val obtenerPromptNutricionalUseCase: ObtenerPromptNutricionalUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -28,20 +35,18 @@ class ChatBotViewModel @Inject constructor(
         val userMsg = ChatMessage(sender = "user", content = texto)
 
         viewModelScope.launch {
-            // 1. Mostrar mensaje del usuario inmediatamente
             _uiState.update { it.copy(messages = it.messages + userMsg, isLoading = true) }
 
             try {
-                // 2. CONEXIÓN: Obtenemos el prompt enriquecido con datos de salud y gustos
-                val promptCompleto = obtenerPromptNutricionalUseCase(texto)
-
-                // 3. Enviamos a Gemini (usamos el prompt completo pero el usuario solo ve su duda)
-                val responseBot = enviarMensajeChatUseCase(ChatMessage(sender = "user", content = promptCompleto))
-
-                // 4. Añadimos respuesta de la IA
-                _uiState.update { it.copy(messages = it.messages + responseBot, isLoading = false) }
+                val promptCompleto   = obtenerPromptNutricionalUseCase(texto)
+                val responseBot      = enviarMensajeChatUseCase(
+                    ChatMessage(sender = "user", content = promptCompleto)
+                )
+                _uiState.update {
+                    it.copy(messages = it.messages + responseBot, isLoading = false)
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
