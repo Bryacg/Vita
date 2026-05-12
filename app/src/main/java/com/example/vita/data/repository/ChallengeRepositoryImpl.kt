@@ -28,30 +28,40 @@ class ChallengeRepositoryImpl @Inject constructor(
         challengeDao.updateChallenger(challenger.toEntity())
     }
 
-    override suspend fun getActiveChallenges(uid: String): List<Challenger> = withContext(Dispatchers.IO) {
-        challengeDao.getActiveChallenges(uid).map { it.toDomain() }
-    }
+    override suspend fun getActiveChallenges(uid: String): List<Challenger> =
+        withContext(Dispatchers.IO) {
+            challengeDao.getActiveChallenges(uid).map { it.toDomain() }
+        }
 
     override suspend fun deleteChallenge(challengeId: Long) = withContext(Dispatchers.IO) {
         challengeDao.deleteChallenge(challengeId)
     }
 
-    // ✅ Calcula inicio y fin del día actual y consulta Room
     override suspend fun getChallengesCreatedToday(uid: String): List<Challenger> =
         withContext(Dispatchers.IO) {
             val startOfDay = getStartOfDayMillis()
-            val endOfDay = startOfDay + 86_400_000L // +24 horas
-
-            challengeDao.getChallengesCreatedToday(uid, startOfDay, endOfDay)
-                .map { it.toDomain() }
+            val endOfDay   = startOfDay + 86_400_000L
+            challengeDao.getAllChallengesDeHoy(uid, startOfDay, endOfDay).map { it.toDomain() }
         }
 
-    private fun getStartOfDayMillis(): Long {
-        return Calendar.getInstance().apply {
+    // ✅ Marca como EXPIRED los retos pasados de plazo
+    override suspend fun expirarRetosVencidos(uid: String) = withContext(Dispatchers.IO) {
+        challengeDao.expirarRetosVencidos(uid, System.currentTimeMillis())
+    }
+
+    // ✅ Devuelve todos los retos creados hoy (activos, completados y expirados)
+    override suspend fun getAllChallengesDeHoy(uid: String): List<Challenger> =
+        withContext(Dispatchers.IO) {
+            val startOfDay = getStartOfDayMillis()
+            val endOfDay   = startOfDay + 86_400_000L
+            challengeDao.getAllChallengesDeHoy(uid, startOfDay, endOfDay).map { it.toDomain() }
+        }
+
+    private fun getStartOfDayMillis(): Long =
+        Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-    }
 }

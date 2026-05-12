@@ -8,7 +8,7 @@ import com.example.vita.domain.usecase.auth.ObtenerUsuarioUseCase
 import com.example.vita.domain.usecase.progreso.AgregarXpUseCase
 import com.example.vita.domain.usecase.retos.ActualizarProgresoRetoUseCase
 import com.example.vita.domain.usecase.retos.GenerarYGuardarRetosUseCase
-import com.example.vita.domain.usecase.retos.ObtenerRetosActivosUseCase
+import com.example.vita.domain.usecase.retos.ObtenerRetosDeHoyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,8 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class RetosViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    // ✅ Use Cases en lugar de repositorios directos
-    private val obtenerRetosActivosUseCase: ObtenerRetosActivosUseCase,
+    private val obtenerRetosDeHoyUseCase: ObtenerRetosDeHoyUseCase,   // ✅ nuevo
     private val obtenerUsuarioUseCase: ObtenerUsuarioUseCase,
     private val generarYGuardarRetosUseCase: GenerarYGuardarRetosUseCase,
     private val actualizarProgresoRetoUseCase: ActualizarProgresoRetoUseCase,
@@ -31,9 +30,7 @@ class RetosViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(RetosUiState())
     val uiState: StateFlow<RetosUiState> = _uiState.asStateFlow()
 
-    init {
-        cargarRetos()
-    }
+    init { cargarRetos() }
 
     fun cargarRetos() {
         viewModelScope.launch {
@@ -41,20 +38,19 @@ class RetosViewModel @Inject constructor(
             try {
                 val uid = authRepository.getCurrentUserId() ?: return@launch
 
-                // ✅ UseCase en lugar de challengeRepository directamente
-                var retos = obtenerRetosActivosUseCase(uid)
+                // 1. Expira vencidos y carga los de hoy (todos los estados)
+                val retosHoy = obtenerRetosDeHoyUseCase(uid)
 
-                if (retos.isNotEmpty()) {
-                    _uiState.update { it.copy(retos = retos, isLoading = false) }
+                if (retosHoy.isNotEmpty()) {
+                    _uiState.update { it.copy(retos = retosHoy, isLoading = false) }
                     return@launch
                 }
 
+                // 2. No hay retos de hoy → generar con IA
                 _uiState.update { it.copy(mensajeCarga = "Diseñando tus retos con IA...") }
 
-                // ✅ UseCase en lugar de userRepository directamente
-                val user   = obtenerUsuarioUseCase(uid)
-                val nombre = user?.name ?: "Entrenador"
-
+                val user    = obtenerUsuarioUseCase(uid)
+                val nombre  = user?.name ?: "Entrenador"
                 val resultado = generarYGuardarRetosUseCase(uid, nombre)
 
                 _uiState.update {
@@ -79,18 +75,17 @@ class RetosViewModel @Inject constructor(
 
     fun actualizarProgresoReto(reto: Challenger) {
         viewModelScope.launch {
-            val uid            = authRepository.getCurrentUserId() ?: return@launch
-            val nuevoProgreso  = reto.currentValue + 1
-            val estaCompletado = nuevoProgreso >= reto.targetValue
-            val nuevoEstado    = if (estaCompletado) "COMPLETED" else "PROGRESSO"
+            val uid           = authRepository.getCurrentUserId() ?: return@launch
+            val nuevoProgreso = reto.currentValue + 1
+            val completado    = nuevoProgreso >= reto.targetValue
 
             actualizarProgresoRetoUseCase(
                 reto.copy(
                     currentValue = nuevoProgreso.coerceAtMost(reto.targetValue),
-                    status       = nuevoEstado
+                    status       = if (completado) "COMPLETED" else "PROGRESSO"
                 )
             )
-            if (estaCompletado) agregarXpUseCase(uid, 80)
+            if (completado) agregarXpUseCase(uid, 80)
             cargarRetos()
         }
     }

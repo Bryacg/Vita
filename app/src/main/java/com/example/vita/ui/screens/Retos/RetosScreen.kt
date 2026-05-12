@@ -12,13 +12,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.vita.ui.components.retos.CardRetosD // Asegúrate de importar tu nueva Card
+import com.example.vita.ui.components.retos.CardRetosD
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var filtroSeleccionado by remember { mutableStateOf("DIARIO") }
+
+    // ✅ Recarga al entrar a la pantalla para detectar expirados
+    LaunchedEffect(Unit) {
+        viewModel.cargarRetos()
+    }
 
     Column(
         modifier = Modifier
@@ -27,7 +32,6 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Encabezado principal
         Text(
             text = "Centro de Desafíos",
             style = MaterialTheme.typography.headlineMedium,
@@ -35,19 +39,20 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Estado de carga con diseño mejorado
         if (uiState.isLoading) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(24.dp)
             ) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Diseñando tus retos con IA...", style = MaterialTheme.typography.bodyMedium)
+                if (!uiState.mensajeCarga.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(uiState.mensajeCarga!!, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
 
-        // Selector de tipo de reto (Filtros)
+        // Selector tipo reto
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -56,48 +61,54 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
         ) {
             FilterChip(
                 selected = filtroSeleccionado == "DIARIO",
-                onClick = { filtroSeleccionado = "DIARIO" },
-                label = { Text("Diarios") },
+                onClick  = { filtroSeleccionado = "DIARIO" },
+                label    = { Text("Diarios") },
                 modifier = Modifier.weight(1f)
             )
             FilterChip(
                 selected = filtroSeleccionado == "SEMANAL",
-                onClick = { filtroSeleccionado = "SEMANAL" },
-                label = { Text("Semanales") },
+                onClick  = { filtroSeleccionado = "SEMANAL" },
+                label    = { Text("Semanales") },
                 modifier = Modifier.weight(1f)
             )
         }
 
-        // Lógica de filtrado
         val retosFiltrados = uiState.retos.filter {
             it.type.equals(filtroSeleccionado, ignoreCase = true)
         }
 
-        // Mensaje cuando no hay datos
         if (retosFiltrados.isEmpty() && !uiState.isLoading) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(200.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No tienes retos ${filtroSeleccionado.lowercase()}s activos.",
+                    text  = "No tienes retos ${filtroSeleccionado.lowercase()}s para hoy.",
                     color = Color.Gray,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
         }
 
-        // Renderizado de tarjetas usando el objeto Challenger completo
-        // Dentro de RetosScreen.kt
         retosFiltrados.forEach { reto ->
-            // Usamos key para que Compose sepa que este elemento debe reaccionar a cambios
             key(reto.id, reto.currentValue, reto.status) {
                 CardRetosD(
-                    challenger = reto,
+                    challenger    = reto,
                     onUpdateClick = { viewModel.actualizarProgresoReto(reto) },
-                    onLongClick = { viewModel.completarRetoInstantaneo(reto) }
+                    onLongClick   = { viewModel.completarRetoInstantaneo(reto) }
                 )
             }
+        }
+
+        uiState.error?.let { error ->
+            Text(
+                text  = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(8.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))

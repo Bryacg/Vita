@@ -1,7 +1,7 @@
 package com.example.vita.data.local.dao
+
 import androidx.room.*
 import com.example.vita.data.local.entities.ChallengeEntity
-import com.example.vita.domain.model.Challenger
 
 @Dao
 interface ChallengeDao {
@@ -12,7 +12,7 @@ interface ChallengeDao {
     @Update
     suspend fun updateChallenger(challenger: ChallengeEntity)
 
-    // Retos activos o en progreso (sin filtro de fecha)
+    // Retos activos (para lógica interna)
     @Query("""
         SELECT * FROM challenge 
         WHERE userId = :uid 
@@ -21,19 +21,37 @@ interface ChallengeDao {
     """)
     suspend fun getActiveChallenges(uid: String): List<ChallengeEntity>
 
-    // ✅ Retos creados HOY: createdAt entre el inicio y fin del día actual
+    // ✅ TODOS los retos de HOY: activos, completados Y expirados
     @Query("""
         SELECT * FROM challenge
-        WHERE userId = :uid
+        WHERE userId  = :uid
         AND createdAt >= :startOfDay
-        AND createdAt < :endOfDay
-        AND status IN ('ACTIVE', 'ACTIVO', 'PROGRESSO', 'COMPLETED')
+        AND createdAt <  :endOfDay
+        ORDER BY
+            CASE status
+                WHEN 'ACTIVO'    THEN 1
+                WHEN 'ACTIVE'    THEN 1
+                WHEN 'PROGRESSO' THEN 2
+                WHEN 'COMPLETED' THEN 3
+                ELSE 4
+            END ASC,
+            deadline ASC
     """)
-    suspend fun getChallengesCreatedToday(
+    suspend fun getAllChallengesDeHoy(
         uid: String,
         startOfDay: Long,
         endOfDay: Long
     ): List<ChallengeEntity>
+
+    // ✅ Marca como EXPIRED los que pasaron su deadline y siguen activos
+    @Query("""
+        UPDATE challenge
+        SET status = 'EXPIRED'
+        WHERE userId = :uid
+        AND deadline < :ahora
+        AND status IN ('ACTIVE', 'ACTIVO', 'PROGRESSO')
+    """)
+    suspend fun expirarRetosVencidos(uid: String, ahora: Long)
 
     @Query("UPDATE challenge SET status = 'COMPLETED' WHERE id = :challengeId")
     suspend fun completeChallenge(challengeId: Long)

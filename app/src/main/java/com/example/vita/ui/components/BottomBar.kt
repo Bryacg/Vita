@@ -1,4 +1,5 @@
 package com.example.vita.ui.components
+
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
@@ -19,72 +20,31 @@ fun BottomBar(navController: NavController) {
 
     NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
 
-        // Item: HOME
-        NavigationBarItem(
-            selected = currentRoute == Routes.Home.route,
-            onClick = {
-                navController.navigate(Routes.Home.route) {
-
-                    // Evita recargar la pantalla si ya estás en ella
-                    launchSingleTop = true
-                    // Restaura el estado si se navegó anteriormente
-                    restoreState = true
-                }
-            },
-            icon = { Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
-            label = { Text("Home") }
+        val tabs = listOf(
+            Triple(Routes.Home.route,    R.drawable.ic_home,       "Home"),
+            Triple(Routes.Retos.route,   R.drawable.ic_challenges, "Retos"),
+            Triple(Routes.Juegos.route,  R.drawable.ic_game,       "Juegos"),
+            Triple(Routes.Progreso.route,R.drawable.ic_progress,   "Progreso"),
+            Triple(Routes.Perfil.route,  R.drawable.ic_profile,    "Perfil")
         )
 
-        // Item: RETOS
-        NavigationBarItem(
-            selected = currentRoute == Routes.Retos.route,
-            onClick = {
-                navController.navigate(Routes.Retos.route) {
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-            icon = { Icon(painterResource(R.drawable.ic_challenges), contentDescription = "Retos") },
-            label = { Text("Retos") }
-        )
-
-        // Item: JUEGOS
-        NavigationBarItem(
-            selected = currentRoute == Routes.Juegos.route,
-            onClick = {
-                navController.navigate(Routes.Juegos.route) {
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-            icon = { Icon(painterResource(R.drawable.ic_game), contentDescription = "Juegos") },
-            label = { Text("Juegos") }
-        )
-
-        // Item: PROGRESO
-        NavigationBarItem(
-            selected = currentRoute == Routes.Progreso.route,
-            onClick = {
-                navController.navigate(Routes.Progreso.route) {
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-            icon = { Icon(painterResource(R.drawable.ic_progress), contentDescription = "Progreso") },
-            label = { Text("Progreso") }
-        )
-
-        // Item: PERFIL
-        NavigationBarItem(
-            selected = currentRoute == Routes.Perfil.route,
-            onClick = {
-                navController.navigate(Routes.Perfil.route) {
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-            icon = { Icon(painterResource(R.drawable.ic_profile), contentDescription = "Perfil") },
-            label = { Text("Perfil") }
-        )
+        tabs.forEach { (route, icon, label) ->
+            NavigationBarItem(
+                selected = currentRoute == route,
+                onClick  = {
+                    navController.navigate(route) {
+                        // ✅ popUpTo + saveState/restoreState evita crear múltiples instancias
+                        // del mismo destino y preserva el estado de cada pestaña
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState    = true
+                    }
+                },
+                icon  = { Icon(painterResource(icon), contentDescription = label) },
+                label = { Text(label) }
+            )
+        }
     }
 }

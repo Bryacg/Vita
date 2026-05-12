@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,6 +18,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.vita.ui.AppStateViewModel
 import com.example.vita.ui.components.BottomBar
+import com.example.vita.ui.screens.ChatBot.ChatBotFab
 import com.example.vita.ui.screens.CreateAcount.CreateAccountScreen
 import com.example.vita.ui.screens.CreateAcount.CreateAccountViewModel
 import com.example.vita.ui.screens.Game.GameScreen
@@ -31,16 +33,11 @@ import com.example.vita.ui.screens.Retos.RetosViewModel
 @Composable
 fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
     val navController = rememberNavController()
-
-    // ✅ Boolean? — null mientras Firebase verifica el estado de sesión
     val isLoggedIn by appStateViewModel.isLoggedIn.collectAsState()
 
-    // ✅ Mientras Firebase verifica, mostramos una pantalla de carga en lugar de hacer flash al login
+    // Mientras Firebase verifica, mostramos carga
     if (isLoggedIn == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
@@ -59,80 +56,84 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
 
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
-                BottomBar(navController = navController)
-            }
+            if (showBottomBar) BottomBar(navController = navController)
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            // ✅ isLoggedIn ya no puede ser null aquí
-            startDestination = if (isLoggedIn == true) Routes.Home.route else Routes.Login.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            // --- FLUJO DE AUTENTICACIÓN ---
-            composable(Routes.Login.route) {
-                val loginViewModel: LoginViewModel = hiltViewModel()
-                LoginScreen(
-                    viewModel = loginViewModel,
-                    onNavigateToCreateAccount = {
-                        navController.navigate(Routes.CreateAccount.route)
-                    },
-                    onLoginAttempt = { email, password ->
-                        loginViewModel.login(email, password)
-                    },
-                    onLoginSuccess = {
-                        navController.navigate(Routes.Home.route) {
-                            popUpTo(Routes.Login.route) { inclusive = true }
+        Box(modifier = Modifier.fillMaxSize()) {
+
+            // ── NavHost ──────────────────────────────────────────────
+            NavHost(
+                navController    = navController,
+                startDestination = if (isLoggedIn == true) Routes.Home.route else Routes.Login.route,
+                modifier         = Modifier.padding(innerPadding)
+            ) {
+                composable(Routes.Login.route) {
+                    val loginViewModel: LoginViewModel = hiltViewModel()
+                    LoginScreen(
+                        viewModel                  = loginViewModel,
+                        onNavigateToCreateAccount  = { navController.navigate(Routes.CreateAccount.route) },
+                        onLoginAttempt             = { email, password -> loginViewModel.login(email, password) },
+                        onLoginSuccess             = {
+                            navController.navigate(Routes.Home.route) {
+                                popUpTo(Routes.Login.route) { inclusive = true }
+                            }
+                        },
+                        onNavigateToProfile        = {
+                            navController.navigate(Routes.Perfil.route) {
+                                popUpTo(Routes.Login.route) { inclusive = true }
+                            }
                         }
-                    },
-                    onNavigateToProfile = {
-                        navController.navigate(Routes.Perfil.route) {
-                            popUpTo(Routes.Login.route) { inclusive = true }
+                    )
+                }
+
+                composable(Routes.CreateAccount.route) {
+                    val vm: CreateAccountViewModel = hiltViewModel()
+                    CreateAccountScreen(
+                        viewModel                = vm,
+                        onCreateAccountAttempt   = { name, lastName, email, pass ->
+                            vm.crearCuenta(name, lastName, email, pass)
+                        },
+                        onNavigateBackToLogin    = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Routes.Home.route) {
+                    HomeScreen(navController = navController)
+                }
+
+                composable(Routes.Retos.route) {
+                    val retosViewModel: RetosViewModel = hiltViewModel()
+                    RetosScreen(viewModel = retosViewModel)
+                }
+
+                composable(Routes.Juegos.route) { GameScreen() }
+
+                composable(Routes.Progreso.route) { ProgressScreen() }
+
+                composable(Routes.Perfil.route) {
+                    ProfileScreen(
+                        onLogoutSuccess = {
+                            navController.navigate(Routes.Login.route) {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
 
-            composable(Routes.CreateAccount.route) {
-                val createAccountViewModel: CreateAccountViewModel = hiltViewModel()
-                CreateAccountScreen(
-                    viewModel = createAccountViewModel,
-                    onCreateAccountAttempt = { name, lastName, email, pass ->
-                        createAccountViewModel.crearCuenta(name, lastName, email, pass)
-                    },
-                    onNavigateBackToLogin = { navController.popBackStack() }
-                )
-            }
-
-            // --- FLUJO PRINCIPAL ---
-
-            // ✅ Routes.Home.route en lugar de "home" hardcodeado
-            composable(Routes.Home.route) {
-                HomeScreen(navController = navController)
-            }
-
-            composable(Routes.Retos.route) {
-                val retosViewModel: RetosViewModel = hiltViewModel()
-                RetosScreen(viewModel = retosViewModel)
-            }
-
-            composable(Routes.Juegos.route) {
-                GameScreen()
-            }
-
-            composable(Routes.Progreso.route) {
-                ProgressScreen()
-            }
-
-            composable(Routes.Perfil.route) {
-                ProfileScreen(
-                    onLogoutSuccess = {
-                        navController.navigate(Routes.Login.route) {
-                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                        }
-                    }
-                )
+            // ── ChatBotFab fuera del NavHost ──────────────────────────
+            // Al estar aquí, el ViewModel no se recrea al cambiar de pestaña.
+            // Los mensajes del chat persisten durante toda la sesión.
+            if (showBottomBar) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(bottom = 16.dp, end = 16.dp),
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    ChatBotFab()
+                }
             }
         }
     }
