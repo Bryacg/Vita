@@ -29,11 +29,10 @@ fun CardRetosD(
     val haptic = LocalHapticFeedback.current
     val isEnabled = challenger.status != "COMPLETED" && challenger.status != "EXPIRED"
 
-    // Definición de color según el estado
     val statusColor = when (challenger.status) {
-        "COMPLETED" -> Color(0xFF4CAF50) // Verde
+        "COMPLETED" -> Color(0xFF4CAF50)
         "PROGRESSO" -> MaterialTheme.colorScheme.primary
-        "EXPIRED" -> MaterialTheme.colorScheme.error // Rojo
+        "EXPIRED" -> MaterialTheme.colorScheme.error
         else -> Color.Gray
     }
 
@@ -48,7 +47,6 @@ fun CardRetosD(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Fila Superior: Tipo y Estado
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -56,12 +54,16 @@ fun CardRetosD(
             ) {
                 SuggestionChip(
                     onClick = { },
-                    label = { Text(challenger.type.uppercase(), style = MaterialTheme.typography.labelSmall) },
+                    label = {
+                        Text(
+                            challenger.type.uppercase(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    },
                     colors = SuggestionChipDefaults.suggestionChipColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     )
                 )
-
                 Text(
                     text = challenger.status.uppercase(),
                     style = MaterialTheme.typography.labelLarge,
@@ -70,7 +72,6 @@ fun CardRetosD(
                 )
             }
 
-            // Nombre y Descripción
             Column {
                 Text(
                     text = challenger.name,
@@ -84,7 +85,6 @@ fun CardRetosD(
                 )
             }
 
-            // Sección de Progreso
             Column {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -92,7 +92,11 @@ fun CardRetosD(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(
+                            Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(Modifier.width(4.dp))
                         Text("Mi progreso", style = MaterialTheme.typography.bodySmall)
                     }
@@ -103,10 +107,13 @@ fun CardRetosD(
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                LineaBar(challenger.targetValue, challenger.currentValue)
+                // ✅ Parámetros en el orden correcto: (actual, total)
+                LineaBar(
+                    progresoActual = challenger.currentValue,
+                    progresoTotal = challenger.targetValue
+                )
             }
 
-            // Fecha de Expiración
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -126,24 +133,17 @@ fun CardRetosD(
 
             Spacer(Modifier.height(4.dp))
 
-            // --- BOTÓN DE ACCIÓN CORREGIDO ---
-            // Usamos Surface para que el gesto no sea bloqueado por el componente Button
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
-                    .pointerInput(challenger.id, challenger.currentValue) { // <--- AÑADE EL CURRENT VALUE AQUÍ
+                    .pointerInput(challenger.id, challenger.currentValue) {
                         detectTapGestures(
-                            onTap = {
-                                if (isEnabled) onUpdateClick()
-                            },
-                            onLongPress = {
-                                if (isEnabled) onLongClick()
-                            }
+                            onTap = { if (isEnabled) onUpdateClick() },
+                            onLongPress = { if (isEnabled) onLongClick() }
                         )
                     },
                 shape = MaterialTheme.shapes.extraLarge,
-                // Si está deshabilitado se ve gris, si no, usa el color primario
                 color = if (isEnabled) MaterialTheme.colorScheme.primary else Color.Gray,
                 tonalElevation = 2.dp
             ) {
@@ -159,7 +159,8 @@ fun CardRetosD(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (isEnabled) "Avance (Mantén para completar)" else "Reto Finalizado",
+                        text = if (isEnabled) "Avance (Mantén para completar)"
+                        else "Reto Finalizado",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelLarge

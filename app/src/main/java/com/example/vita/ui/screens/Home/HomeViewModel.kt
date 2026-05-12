@@ -2,6 +2,7 @@ package com.example.vita.ui.screens.Home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vita.core.DateTimeUtils
 import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.model.Meal
 import com.example.vita.domain.model.Progress
@@ -42,15 +43,19 @@ class HomeViewModel @Inject constructor(
 
                 if (progress == null) {
                     val nuevoProgreso = Progress(
-                        id = 0, userId = uid, level = 1, xp = 0,
-                        streakDays = 1, bmi = 0f, weight = 0f,
-                        date = System.currentTimeMillis()
+                        id = 0,
+                        userId = uid,
+                        level = 1,
+                        xp = 0,
+                        streakDays = 0,           // ✅ usuario nuevo empieza en 0
+                        bmi = 0f,
+                        weight = 0f,
+                        date = DateTimeUtils.getTodayMillis() // ✅ fecha normalizada a inicio del día
                     )
                     progresoRepository.insertarProgreso(nuevoProgreso)
                     progress = nuevoProgreso
                 }
 
-                // Uso de getMealsByDate tal cual está en tu interfaz
                 val comidasHoy = mealRepository.getMealsByDate(uid, System.currentTimeMillis())
                 val totalKcal = comidasHoy.sumOf { it.calories }
                 val promedioSalud = if (comidasHoy.isNotEmpty()) {
@@ -62,14 +67,16 @@ class HomeViewModel @Inject constructor(
                     .find { it.currentValue > 0 && it.status != "COMPLETED" }
                     ?: todosLosRetos.find { it.status != "COMPLETED" }
 
-                _uiState.update { it.copy(
-                    user = user,
-                    progress = progress,
-                    retoDestacado = retoPrioritario,
-                    totalCaloriesHoy = totalKcal,
-                    saludNutricionalHoy = promedioSalud,
-                    isLoading = false
-                )}
+                _uiState.update {
+                    it.copy(
+                        user = user,
+                        progress = progress,
+                        retoDestacado = retoPrioritario,
+                        totalCaloriesHoy = totalKcal,
+                        saludNutricionalHoy = promedioSalud,
+                        isLoading = false
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -80,7 +87,6 @@ class HomeViewModel @Inject constructor(
         val uid = userId ?: return
         viewModelScope.launch {
             try {
-                // CORRECCIÓN: insertMeal según tu interfaz
                 val nuevaComida = Meal(
                     id = 0,
                     userId = uid,
@@ -111,10 +117,12 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val nuevoProgreso = (reto.currentValue + 1).coerceAtMost(reto.targetValue)
             val estaCompletado = nuevoProgreso >= reto.targetValue
-            challengeRepository.updateReto(reto.copy(
-                currentValue = nuevoProgreso,
-                status = if (estaCompletado) "COMPLETED" else "PROGRESSO"
-            ))
+            challengeRepository.updateReto(
+                reto.copy(
+                    currentValue = nuevoProgreso,
+                    status = if (estaCompletado) "COMPLETED" else "PROGRESSO"
+                )
+            )
             if (estaCompletado) agregarXpUseCase(uid, 80)
             cargarDatos()
         }
@@ -123,7 +131,9 @@ class HomeViewModel @Inject constructor(
     fun completarRetoInstantaneo(reto: Challenger) {
         val uid = userId ?: return
         viewModelScope.launch {
-            challengeRepository.updateReto(reto.copy(currentValue = reto.targetValue, status = "COMPLETED"))
+            challengeRepository.updateReto(
+                reto.copy(currentValue = reto.targetValue, status = "COMPLETED")
+            )
             agregarXpUseCase(uid, 80)
             cargarDatos()
         }

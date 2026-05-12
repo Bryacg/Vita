@@ -10,32 +10,30 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.vita.R
 
 @Composable
 fun CreateAccountScreen(
     viewModel: CreateAccountViewModel = hiltViewModel(),
-    onCreateAccountAttempt: (String, String, String, String) -> Unit, // Añadidos Nombre y Apellido
+    onCreateAccountAttempt: (String, String, String, String) -> Unit,
     onNavigateBackToLogin: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState() // Asumiendo que usas StateFlow
+    val uiState by viewModel.uiState.collectAsState()
 
     var name by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") } // Recomendado separar apellido
+    var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.primary) // Fondo superior dinámico
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.primary)
     ) {
-        // Parte superior con logo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -51,19 +49,18 @@ fun CreateAccountScreen(
                 Text(
                     text = "VitaGame",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onPrimary // Texto blanco o contraste
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
         }
 
-        // Parte inferior (Formulario)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.7f)
                 .align(Alignment.BottomCenter)
                 .background(
-                    color = MaterialTheme.colorScheme.surface, // Fondo adaptativo
+                    color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                 )
                 .padding(24.dp)
@@ -73,7 +70,7 @@ fun CreateAccountScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()) // Por si los campos no caben en pantallas pequeñas
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "Crear Cuenta",
@@ -81,7 +78,6 @@ fun CreateAccountScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // Campo Nombre
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -91,7 +87,6 @@ fun CreateAccountScreen(
                     singleLine = true
                 )
 
-                // Campo Apellido
                 OutlinedTextField(
                     value = lastName,
                     onValueChange = { lastName = it },
@@ -131,7 +126,12 @@ fun CreateAccountScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    enabled = !uiState.isLoading && name.isNotBlank() && email.isNotBlank() && password.isNotBlank()
+                    // ✅ lastName.isNotBlank() agregado
+                    enabled = !uiState.isLoading
+                            && name.isNotBlank()
+                            && lastName.isNotBlank()
+                            && email.isNotBlank()
+                            && password.isNotBlank()
                 ) {
                     Text("Registrarse")
                 }

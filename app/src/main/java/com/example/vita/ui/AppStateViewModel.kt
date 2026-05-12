@@ -14,9 +14,17 @@ class AppStateViewModel @Inject constructor(
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    // Estado de sesión expuesto como StateFlow
-    val isLoggedIn: StateFlow<Boolean> = authRepository.isUserLoggedInFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /**
+     * null  → Firebase todavía está verificando la sesión (mostrar splash)
+     * true  → usuario autenticado
+     * false → usuario no autenticado
+     */
+    val isLoggedIn: StateFlow<Boolean?> = authRepository.isUserLoggedInFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null // ✅ null mientras Firebase verifica
+        )
 
     fun signOut() {
         authRepository.signOut()

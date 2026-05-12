@@ -1,10 +1,14 @@
 package com.example.vita.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -27,7 +31,20 @@ import com.example.vita.ui.screens.Retos.RetosViewModel
 @Composable
 fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
     val navController = rememberNavController()
+
+    // ✅ Boolean? — null mientras Firebase verifica el estado de sesión
     val isLoggedIn by appStateViewModel.isLoggedIn.collectAsState()
+
+    // ✅ Mientras Firebase verifica, mostramos una pantalla de carga en lugar de hacer flash al login
+    if (isLoggedIn == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -49,7 +66,8 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = if (isLoggedIn) Routes.Home.route else Routes.Login.route,
+            // ✅ isLoggedIn ya no puede ser null aquí
+            startDestination = if (isLoggedIn == true) Routes.Home.route else Routes.Login.route,
             modifier = Modifier.padding(innerPadding)
         ) {
             // --- FLUJO DE AUTENTICACIÓN ---
@@ -78,11 +96,9 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
 
             composable(Routes.CreateAccount.route) {
                 val createAccountViewModel: CreateAccountViewModel = hiltViewModel()
-                // 1. Corregido el nombre de la función (Account con doble 'c')
-                // 2. Especificados los tipos explícitamente para evitar el error de inferencia
                 CreateAccountScreen(
                     viewModel = createAccountViewModel,
-                    onCreateAccountAttempt = { name: String, lastName: String, email: String, pass: String ->
+                    onCreateAccountAttempt = { name, lastName, email, pass ->
                         createAccountViewModel.crearCuenta(name, lastName, email, pass)
                     },
                     onNavigateBackToLogin = { navController.popBackStack() }
@@ -90,21 +106,29 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
             }
 
             // --- FLUJO PRINCIPAL ---
-            composable("home") {
-                // Le pasamos el navController que ya existe en tu NavHost
+
+            // ✅ Routes.Home.route en lugar de "home" hardcodeado
+            composable(Routes.Home.route) {
                 HomeScreen(navController = navController)
             }
 
-            composable(Routes.Retos.route) { val retosViewModel: RetosViewModel = hiltViewModel()
-                RetosScreen(viewModel = retosViewModel) }
-            composable(Routes.Juegos.route) { GameScreen() }
-            composable(Routes.Progreso.route) { ProgressScreen() }
+            composable(Routes.Retos.route) {
+                val retosViewModel: RetosViewModel = hiltViewModel()
+                RetosScreen(viewModel = retosViewModel)
+            }
+
+            composable(Routes.Juegos.route) {
+                GameScreen()
+            }
+
+            composable(Routes.Progreso.route) {
+                ProgressScreen()
+            }
 
             composable(Routes.Perfil.route) {
                 ProfileScreen(
                     onLogoutSuccess = {
                         navController.navigate(Routes.Login.route) {
-                            // Cambiado a popUpTo(0) o a una ruta raíz para limpiar todo el stack
                             popUpTo(navController.graph.startDestinationId) { inclusive = true }
                         }
                     }

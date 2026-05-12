@@ -10,18 +10,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LineaBar(progresoActual:Int,progresoTotal:Int){
-    // 1. Calculamos el factor (de 0.0 a 1.0)
-    // Es CRÍTICO usar .toFloat() para evitar que la división de 0
+fun LineaBar(progresoActual: Int, progresoTotal: Int) {
     val factorDeProgreso = if (progresoTotal > 0) {
         progresoActual.toFloat() / progresoTotal.toFloat()
     } else {
-        0f // Evitamos error de división por cero
+        0f
     }
+
     LinearProgressIndicator(
-        progress = factorDeProgreso,
-        modifier = Modifier.fillMaxWidth().height(8.dp),
-        color = Color(0xFFFFC107), // Color Naranja/Amarillo de la barra
-        trackColor = MaterialTheme.colorScheme.surfaceVariant // Fondo gris de la barra
+        progress = { factorDeProgreso },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(8.dp),
+        color = Color(0xFFFFC107),
+        trackColor = MaterialTheme.colorScheme.surfaceVariant
     )
 }
