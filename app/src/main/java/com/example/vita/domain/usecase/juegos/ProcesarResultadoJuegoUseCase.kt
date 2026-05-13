@@ -7,7 +7,6 @@ import javax.inject.Inject
 class ProcesarResultadoJuegoUseCase @Inject constructor(
     private val repository: GameRepository
 ) {
-    // Debe recibir el OBJETO completo
     suspend operator fun invoke(gameResult: GameResult): GameResult {
         return repository.saveGameResult(gameResult)
     }

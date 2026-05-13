@@ -1,14 +1,18 @@
 package com.example.vita.ui.screens.Game
 
-import android.content.Context
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.vita.data.remote.godot.GameResultBuffer
-import com.example.vita.domain.usecase.godot.ProcesarResultadoJuegoUseCase
+import com.example.vita.domain.model.GameConfig
+import com.example.vita.domain.model.GameResult
+import com.example.vita.domain.repository.AuthRepository
+import com.example.vita.domain.usecase.juegos.ProcesarResultadoJuegoUseCase
+import com.example.vita.domain.usecase.progreso.AgregarXpUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -16,47 +20,65 @@ import javax.inject.Inject
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
-    private val procesarResultadoJuegoUseCase: ProcesarResultadoJuegoUseCase
+    private val authRepository: AuthRepository,
+    private val procesarResultadoJuegoUseCase: ProcesarResultadoJuegoUseCase,
+    private val agregarXpUseCase: AgregarXpUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
-    fun abrirJuego(context: Context) {
-        val packageName = "com.example.atrapasalud"
-        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+    // Evento de un solo disparo para que la Screen lance el Intent
+    private val _navegarAJuego = MutableSharedFlow<String>()
+    val navegarAJuego: SharedFlow<String> = _navegarAJuego.asSharedFlow()
 
-        if (intent != null) {
-            GameResultBuffer.ultimoResultado = null // Limpiar antes de empezar
-            context.startActivity(intent)
-        } else {
-            Log.e("Vita", "El juego no está instalado")
-            _uiState.update { it.copy(mensajeResultado = "Error: El juego no está instalado") }
+    fun solicitarAbrirJuego(packageName: String = "com.example.atrapasalud") {
+        viewModelScope.launch {
+            _uiState.update { it.copy(juegoActivo = true, mensajeResultado = null) }
+            _navegarAJuego.emit(packageName)
         }
     }
 
-    fun verificarResultadoTrasRegresar() {
+    // Llamado por la Screen cuando el usuario regresa del juego
+    fun onRegresarDeJuego(resultado: String?) {
+        val uid = authRepository.getCurrentUserId() ?: return
+        if (resultado == null) {
+            _uiState.update { it.copy(juegoActivo = false) }
+            return
+        }
+
         viewModelScope.launch {
-            val resultadoString = GameResultBuffer.ultimoResultado
+            try {
+                val xpGanada = if (resultado == "GANASTE") GameConfig.XP_MINIJUEGO_GODOT else 0
 
-            if (resultadoString != null) {
-                // Llamamos al UseCase pasando el String
-                procesarResultadoJuegoUseCase(resultadoString)
+                procesarResultadoJuegoUseCase(GameResult(
+                    id       = 0,
+                    userId   = uid,
+                    name     = "AtrapaSalud",
+                    weight   = 10,
+                    xpEarned = xpGanada,
+                    date     = System.currentTimeMillis()
+                ))
 
-                // Actualizamos la UI
-                _uiState.update {
-                    it.copy(mensajeResultado = "¡Procesado: $resultadoString!")
-                }
+                if (xpGanada > 0) agregarXpUseCase(uid, xpGanada)
 
-                // Importante: Limpiar el buffer
-                GameResultBuffer.ultimoResultado = null
+                _uiState.update { it.copy(
+                    juegoActivo      = false,
+                    mensajeResultado = if (xpGanada > 0) "+$xpGanada XP ganados!" else "Sigue intentando"
+                )}
+            } catch (e: Exception) {
+                _uiState.update { it.copy(
+                    juegoActivo = false,
+                    error       = e.message
+                )}
             }
         }
     }
 }
 
-// Estado de la UI simplificado
 data class GameUiState(
+    val juegoActivo: Boolean = false,
     val mensajeResultado: String? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

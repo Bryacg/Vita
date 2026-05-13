@@ -6,10 +6,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProgressDao {
-    @Query("SELECT * FROM progress WHERE userId = :uid LIMIT 1")
+
+    // Corregido: ORDER BY date DESC para obtener el más reciente
+    @Query("SELECT * FROM progress WHERE userId = :uid ORDER BY date DESC LIMIT 1")
     fun getProgresoStream(uid: String): Flow<ProgressEntity?>
 
-    @Query("SELECT * FROM progress WHERE userId = :uid LIMIT 1")
+    @Query("SELECT * FROM progress WHERE userId = :uid ORDER BY date DESC LIMIT 1")
     suspend fun getProgressByUser(uid: String): ProgressEntity?
 
     @Query("SELECT * FROM progress WHERE userId = :uid AND date = :date LIMIT 1")
@@ -18,7 +20,6 @@ interface ProgressDao {
     @Query("SELECT SUM(xp) FROM progress WHERE userId = :uid")
     suspend fun getTotalXp(uid: String): Int?
 
-    // ✅ Trae los registros de los últimos N días para el gráfico semanal
     @Query("""
         SELECT * FROM progress 
         WHERE userId = :uid 

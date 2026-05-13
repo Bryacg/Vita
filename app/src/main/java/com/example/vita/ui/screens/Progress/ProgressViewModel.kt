@@ -4,13 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vita.domain.model.Progress
 import com.example.vita.domain.repository.AuthRepository
-import com.example.vita.domain.repository.FoodRepository
-import com.example.vita.domain.repository.MealRepository
-import com.example.vita.domain.repository.ProfileRepository
-import com.example.vita.domain.repository.ProgresoRepository
 import com.example.vita.domain.repository.UserRepository
-import com.example.vita.domain.usecase.achievement.EvaluarLogrosUseCase
-import com.example.vita.domain.usecase.perfil.ManageReminderUseCase
+import com.example.vita.domain.repository.ProgresoRepository
+import com.example.vita.domain.usecase.progreso.ObtenerResumenProgresoUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,11 +22,7 @@ class ProgressViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val progresoRepository: ProgresoRepository,
-    private val mealRepository: MealRepository,
-    private val profileRepository: ProfileRepository,
-    private val foodRepository: FoodRepository,
-    private val evaluarLogrosUseCase: EvaluarLogrosUseCase,
-    private val manageReminderUseCase: ManageReminderUseCase
+    private val obtenerResumenProgresoUseCase: ObtenerResumenProgresoUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProgressUiState())
@@ -40,7 +32,6 @@ class ProgressViewModel @Inject constructor(
         val uid = authRepository.getCurrentUserId()
         if (uid != null) {
             observarDatosReactivos(uid)
-            cargarDatosEstaticos(uid)
         } else {
             _uiState.update { it.copy(isLoading = false) }
         }
@@ -53,52 +44,29 @@ class ProgressViewModel @Inject constructor(
                 progresoRepository.getProgresoStream(uid)
             ) { user, progreso -> Pair(user, progreso) }
                 .collectLatest { (user, progreso) ->
-                    _uiState.update { current ->
-                        current.copy(
-                            nivelActual = user?.currentLevel ?: 0,
-                            xpTotal     = user?.currentXp ?: 0,
-                            rachaActual = progreso?.streakDays ?: 0,
-                            isLoading   = false
-                        )
-                    }
-                    cargarDatosEstaticos(uid)
+                    val nivelActual = user?.currentLevel ?: 0
+                    _uiState.update { it.copy(
+                        nivelActual = nivelActual,
+                        xpTotal     = user?.currentXp ?: 0,
+                        rachaActual = progreso?.streakDays ?: 0,
+                        isLoading   = false
+                    )}
+                    cargarResumen(uid, nivelActual)
                 }
         }
     }
 
-    fun cargarDatosEstaticos(uid: String? = authRepository.getCurrentUserId()) {
-        val userId = uid ?: return
+    private fun cargarResumen(uid: String, nivelActual: Int) {
         viewModelScope.launch {
             try {
-                val user         = userRepository.getUserById(userId)
-                val comidas      = mealRepository.getMealsByUser(userId)
-                val perfil       = profileRepository.getProfileByUserId(userId)
-                val semana       = progresoRepository.getProgresoUltimaSemana(userId)
-                val preferencias = foodRepository.getUserFoodPreferences(userId)
-                val (aguaActivo, _) = manageReminderUseCase.obtenerEstadoGuardado("agua")
-
-                val logros = evaluarLogrosUseCase(
-                    uid                  = userId,
-                    nivelActual          = user?.currentLevel ?: 0,
-                    cantidadPreferencias = preferencias.size,
-                    tienePerfilCompleto  = perfil != null && perfil.weight > 0f,
-                    aguaActiva           = aguaActivo
-                )
-
-                val imc = if (perfil != null && perfil.weight > 0f && perfil.height > 0f) {
-                    val alturaMetros = perfil.height / 100f
-                    perfil.weight / (alturaMetros * alturaMetros)
-                } else 0f
-
-                _uiState.update {
-                    it.copy(
-                        totalComidas        = comidas.size,
-                        logrosDesbloqueados = logros.count { logro -> logro.unlocked },
-                        totalLogros         = logros.size,
-                        imc                 = imc,
-                        progresoDeSemana    = semana
-                    )
-                }
+                val resumen = obtenerResumenProgresoUseCase(uid, nivelActual)
+                _uiState.update { it.copy(
+                    totalComidas        = resumen.totalComidas,
+                    logrosDesbloqueados = resumen.logros.count { l -> l.unlocked },
+                    totalLogros         = resumen.logros.size,
+                    imc                 = resumen.imc,
+                    progresoDeSemana    = resumen.semana
+                )}
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -106,7 +74,9 @@ class ProgressViewModel @Inject constructor(
     }
 
     fun refrescar() {
-        cargarDatosEstaticos()
+        val uid = authRepository.getCurrentUserId() ?: return
+        val nivelActual = _uiState.value.nivelActual
+        cargarResumen(uid, nivelActual)
     }
 }
 

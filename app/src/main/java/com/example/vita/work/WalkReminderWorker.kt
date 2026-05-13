@@ -5,12 +5,8 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.work.CoroutineWorker
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.WorkerParameters
+import androidx.work.*
 import java.util.concurrent.TimeUnit
-
 
 class WalkReminderWorker(
     context: Context,
@@ -22,22 +18,29 @@ class WalkReminderWorker(
             title   = "¡Misión de Exploración! 👟",
             message = "Es un gran momento para salir a caminar. ¡Suma pasos para tu nivel!"
         )
+        scheduleNext()
+        return Result.success()
+    }
 
-        // Reprogramar para mañana a la misma hora
-        val nextRequest = OneTimeWorkRequestBuilder<WalkReminderWorker>()
+    // Corregido: enqueueUniqueWork evita duplicados
+    private fun scheduleNext() {
+        val request = OneTimeWorkRequestBuilder<WalkReminderWorker>()
             .setInitialDelay(24, TimeUnit.HOURS)
             .addTag("caminar")
             .build()
 
-        WorkManager.getInstance(applicationContext).enqueue(nextRequest)
-
-        return Result.success()
+        WorkManager.getInstance(applicationContext)
+            .enqueueUniqueWork(
+                "work_caminar_daily",
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
     }
 
     private fun showNotification(title: String, message: String) {
-        val channelId         = "misiones_importantes"
-        val notificationManager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "misiones_importantes"
+        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
+                as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -45,12 +48,11 @@ class WalkReminderWorker(
                 "Misiones Críticas VitaGame",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description      = "Alarmas de misiones diarias"
                 enableLights(true)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(100, 200, 300, 400, 500, 400, 300, 200, 400)
             }
-            notificationManager.createNotificationChannel(channel)
+            nm.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(applicationContext, channelId)
@@ -63,6 +65,6 @@ class WalkReminderWorker(
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        nm.notify("caminar_reminder".hashCode(), notification)
     }
 }

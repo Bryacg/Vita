@@ -12,11 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.vita.ui.components.profile.CardFoodPreferences
-import com.example.vita.ui.components.profile.CardUser
-import com.example.vita.ui.components.profile.PerfilBiometrico  // ✅ nombre actualizado
-import com.example.vita.ui.components.profile.SeccionLogros
-import com.example.vita.ui.components.profile.SeccionRecordatoriosHabitos
+import com.example.vita.ui.components.profile.*
 
 @Composable
 fun ProfileScreen(
@@ -26,25 +22,27 @@ fun ProfileScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { /* Manejar resultado */ }
+        ActivityResultContracts.RequestPermission()
+    ) {}
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (uiState.isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
-            CardUser(user = uiState.user, profile = uiState.profile)
+            // Corregido: pasamos la racha real desde el progreso
+            CardUser(
+                user         = uiState.user,
+                profile      = uiState.profile,
+                rachaActual  = uiState.rachaActual
+            )
 
             if (uiState.logros.isNotEmpty()) {
                 SeccionLogros(logros = uiState.logros)
             }
 
-            // ✅ Nombre actualizado: PerfilBiometrico (con mayúscula)
             PerfilBiometrico(
                 profile   = uiState.profile,
                 onGuardar = { peso, altura, edad, gender ->
@@ -53,21 +51,19 @@ fun ProfileScreen(
             )
 
             CardFoodPreferences(
-                preferences       = uiState.foodPreferences,
-                onAddPreference   = { name, type ->
+                preferences        = uiState.foodPreferences,
+                onAddPreference    = { name, type ->
                     viewModel.agregarPreferenciaAlimentaria(name, type)
                 },
-                onRemovePreference = { preference ->
-                    viewModel.eliminarPreferenciaAlimentaria(preference)
-                }
+                onRemovePreference = { viewModel.eliminarPreferenciaAlimentaria(it) }
             )
 
             SeccionRecordatoriosHabitos(
-                aguaActivo           = uiState.aguaRecordatorioActivo,
-                aguaHora             = uiState.aguaHora,
-                caminarActivo        = uiState.caminarRecordatorioActivo,
-                caminarHora          = uiState.caminarHora,
-                onCambioRecordatorio = { tipo, activo, horaStr ->
+                aguaActivo            = uiState.aguaRecordatorioActivo,
+                aguaHora              = uiState.aguaHora,
+                caminarActivo         = uiState.caminarRecordatorioActivo,
+                caminarHora           = uiState.caminarHora,
+                onCambioRecordatorio  = { tipo, activo, horaStr ->
                     if (activo && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                     }
@@ -78,15 +74,13 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { viewModel.cerrarSesion { onLogoutSuccess() } },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = ButtonDefaults.buttonColors(
+                onClick   = { viewModel.cerrarSesion { onLogoutSuccess() } },
+                modifier  = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors    = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Cerrar Sesión", color = MaterialTheme.colorScheme.onError)
+                Text("Cerrar sesión", color = MaterialTheme.colorScheme.onError)
             }
 
             Spacer(modifier = Modifier.height(32.dp))

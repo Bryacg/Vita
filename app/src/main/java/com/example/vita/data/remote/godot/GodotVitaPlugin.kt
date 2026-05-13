@@ -7,21 +7,25 @@ import org.godotengine.godot.plugin.UsedByGodot
 
 class GodotVitaPlugin(godot: Godot) : GodotPlugin(godot) {
 
-    // Este nombre DEBE ser idéntico al que pusiste en Godot
     override fun getPluginName() = "GodotAndroid"
 
-    // Esta función es la que llama tu código: plugin.call("saveGameResult", ...)
+    // Callback opcional para integración nativa futura
+    var onResultado: ((String) -> Unit)? = null
+
     @UsedByGodot
     fun saveGameResult(gameName: String, result: String) {
-        Log.d("GodotVita", "Recibido desde Godot: Juego $gameName, Resultado: $result")
+        Log.d("GodotVita", "Recibido desde Godot: $gameName — $result")
 
-        // Aquí guardamos el resultado para que Vita lo use
-        // Lo ideal es mandarlo a un Singleton o guardar en SharedPreferences
+        // Guarda en el buffer para que la Screen lo lea al regresar
         GameResultBuffer.ultimoResultado = result
+
+        // También notifica por callback si está registrado
+        onResultado?.invoke(result)
     }
 }
 
-// Objeto temporal para guardar el resultado mientras volvemos a la app
+// Buffer estático que sobrevive al cambio de Activity
+// Es el puente entre el plugin de Godot y la Screen de Android
 object GameResultBuffer {
     var ultimoResultado: String? = null
 }

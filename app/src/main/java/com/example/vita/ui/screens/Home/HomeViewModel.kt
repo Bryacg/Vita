@@ -3,6 +3,7 @@ package com.example.vita.ui.screens.Home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vita.domain.model.Challenger
+import com.example.vita.domain.model.GameConfig
 import com.example.vita.domain.model.Meal
 import com.example.vita.domain.model.Progress
 import com.example.vita.domain.model.User
@@ -21,9 +22,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    // ✅ AuthRepository para getCurrentUserId — aceptado en MVVM+Clean
     private val authRepository: AuthRepository,
-    // ✅ Solo Use Cases — sin repositorios directos
     private val obtenerUsuarioUseCase: ObtenerUsuarioUseCase,
     private val obtenerOCrearProgresoUseCase: ObtenerOCrearProgresoUseCase,
     private val obtenerRetosActivosUseCase: ObtenerRetosActivosUseCase,
@@ -38,40 +37,33 @@ class HomeViewModel @Inject constructor(
 
     private val userId get() = authRepository.getCurrentUserId()
 
-    init {
-        cargarDatos()
-    }
+    init { cargarDatos() }
 
     fun cargarDatos() {
         val uid = userId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                // ✅ Todo a través de Use Cases
                 val user     = obtenerUsuarioUseCase(uid)
                 val progress = obtenerOCrearProgresoUseCase(uid)
-
                 val comidasHoy   = obtenerComidasHoyUseCase(uid)
                 val totalKcal    = comidasHoy.sumOf { it.calories }
                 val promedioSalud = if (comidasHoy.isNotEmpty())
-                    comidasHoy.map { it.healthyScore }.average().toInt()
-                else 0
+                    comidasHoy.map { it.healthyScore }.average().toInt() else 0
 
-                val todosLosRetos  = obtenerRetosActivosUseCase(uid)
+                val todosLosRetos = obtenerRetosActivosUseCase(uid)
                 val retoPrioritario = todosLosRetos
                     .find { it.currentValue > 0 && it.status != "COMPLETED" }
                     ?: todosLosRetos.find { it.status != "COMPLETED" }
 
-                _uiState.update {
-                    it.copy(
-                        user               = user,
-                        progress           = progress,
-                        retoDestacado      = retoPrioritario,
-                        totalCaloriesHoy   = totalKcal,
-                        saludNutricionalHoy = promedioSalud,
-                        isLoading          = false
-                    )
-                }
+                _uiState.update { it.copy(
+                    user                = user,
+                    progress            = progress,
+                    retoDestacado       = retoPrioritario,
+                    totalCaloriesHoy    = totalKcal,
+                    saludNutricionalHoy = promedioSalud,
+                    isLoading           = false
+                )}
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -82,12 +74,11 @@ class HomeViewModel @Inject constructor(
         val uid = userId ?: return
         viewModelScope.launch {
             try {
-                val nuevaComida = Meal(
+                registrarComidaUseCase(Meal(
                     id = 0, userId = uid, name = nombre,
                     calories = kcal, healthyScore = salud,
                     date = System.currentTimeMillis()
-                )
-                registrarComidaUseCase(nuevaComida) // ✅ UseCase
+                ))
                 cargarDatos()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Error al guardar: ${e.message}") }
@@ -95,11 +86,19 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun ganarExperiencia(tipo: String) {
+    // Corregido: usa constantes de GameConfig en lugar de magic strings
+    fun ganarExperienciaMinijuego() {
         val uid = userId ?: return
         viewModelScope.launch {
-            val puntos = if (tipo.uppercase() == "GODOT") 170 else 80
-            agregarXpUseCase(uid, puntos)
+            agregarXpUseCase(uid, GameConfig.XP_MINIJUEGO_GODOT)
+            cargarDatos()
+        }
+    }
+
+    fun ganarExperienciaReto() {
+        val uid = userId ?: return
+        viewModelScope.launch {
+            agregarXpUseCase(uid, GameConfig.XP_RETO_DIARIO)
             cargarDatos()
         }
     }
@@ -109,13 +108,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val nuevoProgreso  = (reto.currentValue + 1).coerceAtMost(reto.targetValue)
             val estaCompletado = nuevoProgreso >= reto.targetValue
-            actualizarProgresoRetoUseCase( // ✅ UseCase
-                reto.copy(
-                    currentValue = nuevoProgreso,
-                    status = if (estaCompletado) "COMPLETED" else "PROGRESSO"
-                )
-            )
-            if (estaCompletado) agregarXpUseCase(uid, 80)
+            actualizarProgresoRetoUseCase(reto.copy(
+                currentValue = nuevoProgreso,
+                status       = if (estaCompletado) "COMPLETED" else "PROGRESSO"
+            ))
+            if (estaCompletado) agregarXpUseCase(uid, GameConfig.XP_RETO_DIARIO)
             cargarDatos()
         }
     }
@@ -123,10 +120,10 @@ class HomeViewModel @Inject constructor(
     fun completarRetoInstantaneo(reto: Challenger) {
         val uid = userId ?: return
         viewModelScope.launch {
-            actualizarProgresoRetoUseCase( // ✅ UseCase
+            actualizarProgresoRetoUseCase(
                 reto.copy(currentValue = reto.targetValue, status = "COMPLETED")
             )
-            agregarXpUseCase(uid, 80)
+            agregarXpUseCase(uid, GameConfig.XP_RETO_DIARIO)
             cargarDatos()
         }
     }

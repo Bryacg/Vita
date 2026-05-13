@@ -15,7 +15,8 @@ import com.example.vita.data.local.entities.*
         FoodEntity::class,
         AchievementEntity::class,
         ChallengeEntity::class,
-        GameEntity::class
+        GameEntity::class,
+        ChatMessageEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -30,4 +31,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun archivementDao(): ArchivementDao
     abstract fun challengeDao(): ChallengeDao
     abstract fun gameResultDao(): GameDao
+    abstract fun chatMessageDao(): ChatMessageDao
 }

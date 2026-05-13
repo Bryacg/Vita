@@ -3,10 +3,7 @@ package com.example.vita.ui.screens.Login
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.vita.domain.model.User
-import com.example.vita.domain.repository.AuthRepository
-import com.example.vita.domain.repository.ProfileRepository
-import com.example.vita.domain.repository.UserRepository
+import com.example.vita.domain.usecase.auth.ObtenerSesionUseCase
 import com.example.vita.domain.usecase.auth.SignInWithEmailUseCase
 import com.example.vita.domain.usecase.auth.SignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,9 +18,7 @@ import javax.inject.Inject
 class LoginViewModel @Inject constructor(
     private val signInUseCase: SignInWithEmailUseCase,
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
-    private val userRepository: UserRepository,
-    private val profileRepository: ProfileRepository,
-    private val authRepository: AuthRepository
+    private val obtenerSesionUseCase: ObtenerSesionUseCase   // reemplaza los 3 repositorios
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -32,20 +27,12 @@ class LoginViewModel @Inject constructor(
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val result = signInUseCase(email, password)
-
-            // ✅ Usando fold() para manejar correctamente éxito y error
-            result.fold(
-                onSuccess = { verificarDatosUsuario() },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Credenciales inválidas. Verifica tu correo y contraseña."
-                        )
-                    }
-                }
+            signInUseCase(email, password).fold(
+                onSuccess  = { verificarDatos() },
+                onFailure  = { _uiState.update { s ->
+                    s.copy(isLoading = false,
+                        error = "Credenciales inválidas. Verifica tu correo y contraseña.")
+                }}
             )
         }
     }
@@ -54,53 +41,25 @@ class LoginViewModel @Inject constructor(
         if (_uiState.value.isLoading) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val result = signInWithGoogleUseCase(context)
-
-            // ✅ Usando fold()
-            result.fold(
-                onSuccess = { verificarDatosUsuario() },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = error.message ?: "Error al iniciar sesión con Google."
-                        )
-                    }
-                }
+            signInWithGoogleUseCase(context).fold(
+                onSuccess  = { verificarDatos() },
+                onFailure  = { e -> _uiState.update { s ->
+                    s.copy(isLoading = false, error = e.message ?: "Error con Google.")
+                }}
             )
         }
     }
 
-    private suspend fun verificarDatosUsuario() {
-        val uid = authRepository.getCurrentUserId() ?: run {
-            _uiState.update { it.copy(isLoading = false, error = "No se pudo obtener el usuario.") }
-            return
-        }
-
-        val userFromAuth = authRepository.getCurrentUser()
-        val existingUser = userRepository.getUserById(uid)
-
-        if (existingUser == null) {
-            val newUser = User(
-                idUsuario = uid,
-                email = userFromAuth?.email ?: "",
-                name = userFromAuth?.name ?: "Usuario",
-                lastName = userFromAuth?.lastName ?: "Vita",
-                currentLevel = 1,
-                currentXp = 0
-            )
-            userRepository.saveUser(newUser)
-        }
-
-        val profile = profileRepository.getProfileByUserId(uid)
-
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                success = true,
-                navigateToProfile = (profile == null || profile.weight == 0f)
-            )
+    private suspend fun verificarDatos() {
+        try {
+            val resultado = obtenerSesionUseCase()
+            _uiState.update { it.copy(
+                isLoading        = false,
+                success          = true,
+                navigateToProfile = resultado.necesitaPerfil
+            )}
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isLoading = false, error = e.message) }
         }
     }
 }
