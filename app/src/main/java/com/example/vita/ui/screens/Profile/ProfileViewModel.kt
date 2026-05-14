@@ -19,7 +19,7 @@ class ProfileViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val foodRepository: FoodRepository,
     private val authRepository: AuthRepository,
-    private val progresoRepository: ProgresoRepository,   // añadido para racha
+    private val progresoRepository: ProgresoRepository,
     private val evaluarLogrosUseCase: EvaluarLogrosUseCase,
     private val signOutUseCase: SignOutUseCase,
     private val manageReminderUseCase: ManageReminderUseCase
@@ -28,6 +28,10 @@ class ProfileViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    // Evento de un solo disparo: navegar a Home tras guardar por primera vez
+    private val _navegarAHome = MutableSharedFlow<Unit>()
+    val navegarAHome: SharedFlow<Unit> = _navegarAHome.asSharedFlow()
+
     init { cargarDatos() }
 
     fun cargarDatos() {
@@ -35,10 +39,10 @@ class ProfileViewModel @Inject constructor(
             try {
                 val uid = authRepository.getCurrentUserId() ?: return@launch
 
-                val userDef       = async { userRepository.getUserById(uid) }
-                val profileDef    = async { profileRepository.getProfileByUserId(uid) }
-                val prefDef       = async { foodRepository.getUserFoodPreferences(uid) }
-                val progresoDef   = async { progresoRepository.getProgreso(uid) }
+                val userDef     = async { userRepository.getUserById(uid) }
+                val profileDef  = async { profileRepository.getProfileByUserId(uid) }
+                val prefDef     = async { foodRepository.getUserFoodPreferences(uid) }
+                val progresoDef = async { progresoRepository.getProgreso(uid) }
 
                 val user        = userDef.await()
                 val profile     = profileDef.await()
@@ -56,21 +60,40 @@ class ProfileViewModel @Inject constructor(
                     aguaActiva           = aguaActivo
                 )
 
-                _uiState.update { it.copy(
-                    user                      = user,
-                    profile                   = profile,
-                    foodPreferences           = preferences,
-                    logros                    = logrosCalculados,
-                    rachaActual               = progreso?.streakDays ?: 0,  // corregido
-                    isLoading                 = false,
-                    aguaRecordatorioActivo    = aguaActivo,
-                    aguaHora                  = aguaHora,
-                    caminarRecordatorioActivo = caminarActivo,
-                    caminarHora               = caminarHora
-                )}
+                _uiState.update {
+                    it.copy(
+                        user                      = user,
+                        profile                   = profile,
+                        foodPreferences           = preferences,
+                        logros                    = logrosCalculados,
+                        rachaActual               = progreso?.streakDays ?: 0,
+                        isLoading                 = false,
+                        esPrimerAcceso            = profile == null || profile.weight == 0f,
+                        aguaRecordatorioActivo    = aguaActivo,
+                        aguaHora                  = aguaHora,
+                        caminarRecordatorioActivo = caminarActivo,
+                        caminarHora               = caminarHora
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
                 e.printStackTrace()
+            }
+        }
+    }
+
+    fun guardarDatosFisicos(peso: Float, altura: Float, edad: Int, genero: String) {
+        viewModelScope.launch {
+            val uid          = authRepository.getCurrentUserId() ?: return@launch
+            val esPrimerVez  = _uiState.value.esPrimerAcceso
+            val currentId    = _uiState.value.profile?.id ?: 0
+
+            profileRepository.saveProfile(Profile(currentId, uid, altura, peso, edad, genero))
+            cargarDatos()
+
+            // Si era el primer guardado, emitimos el evento para ir al Home
+            if (esPrimerVez) {
+                _navegarAHome.emit(Unit)
             }
         }
     }
@@ -97,15 +120,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun guardarDatosFisicos(peso: Float, altura: Float, edad: Int, genero: String) {
-        viewModelScope.launch {
-            val uid       = authRepository.getCurrentUserId() ?: return@launch
-            val currentId = _uiState.value.profile?.id ?: 0
-            profileRepository.saveProfile(Profile(currentId, uid, altura, peso, edad, genero))
-            cargarDatos()
-        }
-    }
-
     fun eliminarPreferenciaAlimentaria(preference: FoodPreference) {
         viewModelScope.launch {
             foodRepository.deletePreference(preference)
@@ -126,8 +140,10 @@ data class ProfileUiState(
     val profile: Profile? = null,
     val foodPreferences: List<Pair<Food, FoodPreference>> = emptyList(),
     val logros: List<Achievement> = emptyList(),
-    val rachaActual: Int = 0,          // nuevo
+    val rachaActual: Int = 0,
+    val esPrimerAcceso: Boolean = false,      // nuevo — detecta primera vez
     val isLoading: Boolean = true,
+    val error: String? = null,
     val aguaRecordatorioActivo: Boolean = false,
     val aguaHora: String = "09:00",
     val caminarRecordatorioActivo: Boolean = false,

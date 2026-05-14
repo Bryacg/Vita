@@ -35,7 +35,6 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val isLoggedIn by appStateViewModel.isLoggedIn.collectAsState()
 
-    // Mientras Firebase verifica, mostramos carga
     if (isLoggedIn == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -55,13 +54,10 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
     )
 
     Scaffold(
-        bottomBar = {
-            if (showBottomBar) BottomBar(navController = navController)
-        }
+        bottomBar = { if (showBottomBar) BottomBar(navController = navController) }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
 
-            // ── NavHost ──────────────────────────────────────────────
             NavHost(
                 navController    = navController,
                 startDestination = if (isLoggedIn == true) Routes.Home.route else Routes.Login.route,
@@ -70,18 +66,21 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
                 composable(Routes.Login.route) {
                     val loginViewModel: LoginViewModel = hiltViewModel()
                     LoginScreen(
-                        viewModel                  = loginViewModel,
-                        onNavigateToCreateAccount  = { navController.navigate(Routes.CreateAccount.route) },
-                        onLoginAttempt             = { email, password -> loginViewModel.login(email, password) },
-                        onLoginSuccess             = {
+                        viewModel                 = loginViewModel,
+                        onNavigateToCreateAccount = { navController.navigate(Routes.CreateAccount.route) },
+                        onLoginAttempt            = { email, password -> loginViewModel.login(email, password) },
+                        onLoginSuccess            = {
                             navController.navigate(Routes.Home.route) {
                                 popUpTo(Routes.Login.route) { inclusive = true }
                             }
                         },
-                        onNavigateToProfile        = {
-                            navController.navigate(Routes.Perfil.route) {
+                        // CORREGIDO: navegamos a Home PRIMERO, luego a Perfil encima.
+                        // Así Home queda en el back stack y el BottomBar funciona.
+                        onNavigateToProfile       = {
+                            navController.navigate(Routes.Home.route) {
                                 popUpTo(Routes.Login.route) { inclusive = true }
                             }
+                            navController.navigate(Routes.Perfil.route)
                         }
                     )
                 }
@@ -89,11 +88,11 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
                 composable(Routes.CreateAccount.route) {
                     val vm: CreateAccountViewModel = hiltViewModel()
                     CreateAccountScreen(
-                        viewModel                = vm,
-                        onCreateAccountAttempt   = { name, lastName, email, pass ->
+                        viewModel              = vm,
+                        onCreateAccountAttempt = { name, lastName, email, pass ->
                             vm.crearCuenta(name, lastName, email, pass)
                         },
-                        onNavigateBackToLogin    = { navController.popBackStack() }
+                        onNavigateBackToLogin  = { navController.popBackStack() }
                     )
                 }
 
@@ -106,27 +105,30 @@ fun AppNavigation(appStateViewModel: AppStateViewModel = hiltViewModel()) {
                     RetosScreen(viewModel = retosViewModel)
                 }
 
-                composable(Routes.Juegos.route) { GameScreen() }
-
+                composable(Routes.Juegos.route)  { GameScreen() }
                 composable(Routes.Progreso.route) { ProgressScreen() }
 
                 composable(Routes.Perfil.route) {
                     ProfileScreen(
-                        onLogoutSuccess = {
+                        onLogoutSuccess    = {
                             navController.navigate(Routes.Login.route) {
                                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                            }
+                        },
+                        // CORREGIDO: cuando el perfil se guarda por primera vez,
+                        // volvemos a Home que ya está en el back stack.
+                        onPerfilCompletado = {
+                            navController.navigate(Routes.Home.route) {
+                                popUpTo(Routes.Perfil.route) { inclusive = true }
                             }
                         }
                     )
                 }
             }
 
-            // ── ChatBotFab fuera del NavHost ──────────────────────────
-            // Al estar aquí, el ViewModel no se recrea al cambiar de pestaña.
-            // Los mensajes del chat persisten durante toda la sesión.
             if (showBottomBar) {
                 Box(
-                    modifier = Modifier
+                    modifier         = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
                         .padding(bottom = 16.dp, end = 16.dp),

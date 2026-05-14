@@ -26,8 +26,9 @@ object RepositoryModule {
     @Provides @Singleton
     fun provideChatRepository(
         @ChatBotApi generativeModel: GenerativeModel,
-        chatMessageDao: ChatMessageDao
-    ): ChatRepository = ChatRepositoryImpl(generativeModel, chatMessageDao)
+        chatMessageDao: ChatMessageDao,
+        authRepository: AuthRepository              // nuevo parámetro
+    ): ChatRepository = ChatRepositoryImpl(generativeModel, chatMessageDao, authRepository)
 
     @Provides @Singleton
     fun provideUserRepository(dao: UserDao): UserRepository = UserRepositoryImpl(dao)

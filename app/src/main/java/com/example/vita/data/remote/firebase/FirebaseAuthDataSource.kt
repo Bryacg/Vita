@@ -2,15 +2,16 @@ package com.example.vita.data.remote.firebase
 
 import android.content.Context
 import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.example.vita.data.mapper.toDomain
 import com.example.vita.domain.model.User
-import com.example.vita.domain.usecase.auth.RegisterUserUseCase
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
@@ -25,8 +26,9 @@ class FirebaseAuthDataSource @Inject constructor(
     private val auth: FirebaseAuth,
     private val credentialManager: CredentialManager
 ) {
-    // Reemplaza con tu ID real de Firebase Console (Web Client ID)
-    private val WEB_CLIENT_ID = "1069088296554-jspcbmv26iqiqcfrn0bf2d42uvlaode5.apps.googleusercontent.com"
+    // ✅ Usa el Web Client ID (tipo 3) del google-services.json
+    private val WEB_CLIENT_ID =
+        "1069088296554-jspcbmv26iqiqcfrn0bf2d42uvlaode5.apps.googleusercontent.com"
 
     val isLoggedInFlow: Flow<Boolean> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener {
@@ -36,26 +38,28 @@ class FirebaseAuthDataSource @Inject constructor(
         awaitClose { auth.removeAuthStateListener(listener) }
     }
 
-    // Lógica pura de Firebase para Login
     suspend fun login(email: String, password: String): Result<User> {
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
-            val user = result.user?.toDomain() ?: throw Exception("Error al obtener usuario")
+            val user = result.user?.toDomain()
+                ?: return Result.failure(Exception("No se pudo obtener el usuario"))
             Result.success(user)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
 
-    // Lógica pura de Firebase para Registro
     suspend fun register(user: User, password: String): Result<User> {
         return try {
             val result = auth.createUserWithEmailAndPassword(user.email, password).await()
-            val firebaseUser = result.user?.toDomain() ?: throw Exception("Error en registro")
+            val firebaseUser = result.user?.toDomain()
+                ?: return Result.failure(Exception("Error al crear el usuario"))
             Result.success(firebaseUser)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -63,9 +67,9 @@ class FirebaseAuthDataSource @Inject constructor(
     suspend fun signInWithGoogle(context: Context): Result<User> {
         return try {
             val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
+                .setFilterByAuthorizedAccounts(false) // ✅ false = permite cuentas nuevas
                 .setServerClientId(WEB_CLIENT_ID)
-                .setAutoSelectEnabled(true)
+                .setAutoSelectEnabled(false)          // ✅ false = muestra selector siempre
                 .build()
 
             val request = GetCredentialRequest.Builder()
@@ -75,16 +79,56 @@ class FirebaseAuthDataSource @Inject constructor(
             val result = credentialManager.getCredential(context, request)
             val credential = result.credential
 
-            if (credential is GoogleIdTokenCredential) {
-                val googleCredential = GoogleAuthProvider.getCredential(credential.idToken, null)
-                val authResult = auth.signInWithCredential(googleCredential).await()
-                val user = authResult.user?.toDomain() ?: throw Exception("Error con Firebase")
-                Result.success(user)
-            } else {
-                Result.failure(Exception("Tipo de credencial no válido"))
+            // ✅ Maneja AMBOS tipos que puede devolver Credential Manager
+            val idToken: String = when {
+                // Caso 1: Credential Manager devuelve GoogleIdTokenCredential directamente
+                credential is GoogleIdTokenCredential -> {
+                    credential.idToken
+                }
+
+                // Caso 2: En Android 14+ o ciertos dispositivos viene como CustomCredential
+                // Este era el bug — el código anterior solo manejaba el Caso 1
+                credential is CustomCredential &&
+                        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL -> {
+                    GoogleIdTokenCredential.createFrom(credential.data).idToken
+                }
+
+                // Caso 3: Tipo no reconocido — informamos el tipo real para debug
+                else -> {
+                    return Result.failure(
+                        Exception(
+                            "Tipo de credencial no soportado: ${credential.type}. " +
+                                    "Verifica la configuración de SHA-1 en Firebase Console."
+                        )
+                    )
+                }
             }
+
+            // Con el idToken ya extraído, autenticamos en Firebase
+            val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = auth.signInWithCredential(firebaseCredential).await()
+            val user = authResult.user?.toDomain()
+                ?: return Result.failure(Exception("Error al obtener datos de Firebase"))
+
+            Result.success(user)
+
+        } catch (e: NoCredentialException) {
+            // El usuario no tiene cuentas Google configuradas en el dispositivo
+            Result.failure(
+                Exception("No hay cuentas de Google disponibles en este dispositivo. " +
+                        "Agrega una cuenta en Ajustes → Cuentas.")
+            )
+        } catch (e: GetCredentialCancellationException) {
+            // El usuario cerró el selector sin elegir cuenta
+            Result.failure(Exception("Inicio de sesión cancelado"))
         } catch (e: GetCredentialException) {
-            Result.failure(e)
+            // Error general del Credential Manager (incluye SHA-1 incorrecto)
+            Result.failure(
+                Exception(
+                    "Error de Google Sign-In: ${e.message}. " +
+                            "Asegúrate de que el SHA-1 esté registrado en Firebase Console."
+                )
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -98,23 +142,19 @@ class FirebaseAuthDataSource @Inject constructor(
 
     fun getAuthenticatedUserInfo(): User? {
         val firebaseUser = auth.currentUser ?: return null
-
-        // Aquí SÍ existe 'displayName' porque firebaseUser es de la SDK de Firebase
-        val fullName = firebaseUser.displayName ?: ""
+        val fullName  = firebaseUser.displayName ?: ""
         val emailReal = firebaseUser.email ?: ""
-
-        // Separamos el nombre y apellido de forma segura
         val nameParts = fullName.trim().split("\\s+".toRegex())
         val firstName = nameParts.getOrNull(0) ?: "Usuario"
-        val lastName = if (nameParts.size > 1) nameParts.drop(1).joinToString(" ") else "Vita"
+        val lastName  = if (nameParts.size > 1) nameParts.drop(1).joinToString(" ") else "Vita"
 
         return User(
-            idUsuario = firebaseUser.uid,
-            email = emailReal,
-            name = firstName,
-            lastName = lastName,
+            idUsuario    = firebaseUser.uid,
+            email        = emailReal,
+            name         = firstName,
+            lastName     = lastName,
             currentLevel = 1,
-            currentXp = 0
+            currentXp    = 0
         )
     }
 }

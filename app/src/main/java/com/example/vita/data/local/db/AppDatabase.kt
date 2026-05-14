@@ -18,7 +18,7 @@ import com.example.vita.data.local.entities.*
         GameEntity::class,
         ChatMessageEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

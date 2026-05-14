@@ -24,7 +24,11 @@ fun CardUser(user: User?, profile: Profile?, rachaActual: Int = 0) {
             ),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth()
+        ) {
             Text(
                 text  = if (user != null) "${user.name} ${user.lastName}" else "Cargando...",
                 style = MaterialTheme.typography.titleLarge,
@@ -38,18 +42,24 @@ fun CardUser(user: User?, profile: Profile?, rachaActual: Int = 0) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                Text("Edad: ${profile?.age ?: "--"} | ", style = MaterialTheme.typography.bodySmall)
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Text("Edad: ${profile?.age ?: "--"} | ",  style = MaterialTheme.typography.bodySmall)
                 Text("Peso: ${profile?.weight ?: "--"} kg | ", style = MaterialTheme.typography.bodySmall)
-                Text("Altura: ${profile?.height ?: "--"} cm", style = MaterialTheme.typography.bodySmall)
+                Text("Altura: ${profile?.height ?: "--"} cm",  style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 ProfileStatColumn("${user?.currentLevel ?: 1}", "Nivel")
                 ProfileStatColumn("${user?.currentXp ?: 0}", "Exp.")
-                // Corregido: usa el parámetro en lugar de "1" hardcodeado
+                // Corregido: usa rachaActual del ViewModel, no "1" literal
                 ProfileStatColumn("$rachaActual", "Racha")
             }
         }
