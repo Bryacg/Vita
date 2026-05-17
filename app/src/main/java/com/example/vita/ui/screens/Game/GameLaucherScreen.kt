@@ -13,35 +13,49 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.vita.data.remote.godot.GameResultBuffer
 import com.example.vita.ui.components.CardGame
+import java.io.File
+
+// NOTA: GodotVitaPlugin.kt y GameResultBuffer ya no son necesarios.
+// Puedes borrar data/remote/godot/GodotVitaPlugin.kt de tu proyecto Android.
 
 @Composable
 fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context  = LocalContext.current
 
+    // ─── Launcher que se activa cuando Godot cierra su Activity ────────────
     val juegoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        // Al regresar del juego leemos el buffer y lo limpiamos
-        val resultado = GameResultBuffer.ultimoResultado
-        GameResultBuffer.ultimoResultado = null
+    ) { _ ->
+        // Godot ya cerró; leemos el archivo que dejó escrito
+        val archivo = File(context.getExternalFilesDir(null), "game_result.txt")
+
+        val resultado = if (archivo.exists()) {
+            val texto = archivo.readText().trim()
+            archivo.delete()   // limpiamos para la próxima partida
+            texto.ifBlank { null }
+        } else {
+            null
+        }
+
         viewModel.onRegresarDeJuego(resultado)
     }
 
+    // ─── Observamos el evento de "abrir juego" ─────────────────────────────
     LaunchedEffect(Unit) {
         viewModel.navegarAJuego.collect { packageName ->
-            val intent = context.packageManager
-                .getLaunchIntentForPackage(packageName)
+            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
             if (intent != null) {
                 juegoLauncher.launch(intent)
             } else {
+                // El APK de Godot no está instalado
                 viewModel.onRegresarDeJuego(null)
             }
         }
     }
 
+    // ─── UI ────────────────────────────────────────────────────────────────
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -78,6 +92,7 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
             onclic      = { viewModel.solicitarAbrirJuego("com.example.velocidad") }
         )
 
+        // Mensaje de resultado ("+170 XP ganados!" o "Sigue intentando")
         uiState.mensajeResultado?.let { msg ->
             Card(
                 colors = CardDefaults.cardColors(
