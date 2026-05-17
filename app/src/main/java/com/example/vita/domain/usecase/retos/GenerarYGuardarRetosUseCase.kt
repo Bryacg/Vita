@@ -1,6 +1,7 @@
 package com.example.vita.domain.usecase.retos
 
 import android.util.Log
+import com.example.vita.core.DateTimeUtils
 import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.repository.ChallengeRepository
 import kotlinx.coroutines.Dispatchers
@@ -8,11 +9,18 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Decide si genera nuevos retos o devuelve los ya existentes del día.
- *
  * Reglas de negocio:
- *  - Si ya hay retos creados HOY  → devuelve esos, NO genera más.
- *  - Si NO hay retos de hoy       → genera con IA y los persiste.
+ *
+ * DIARIOS
+ *   - Se generan una vez por día, al abrir la app.
+ *   - createdAt = hoy 00:00:01
+ *   - deadline  = hoy 23:59:59
+ *
+ * SEMANALES
+ *   - Solo se generan si es LUNES y no existen para esta semana.
+ *   - createdAt = lunes 00:00:01 de esta semana
+ *   - deadline  = domingo 23:59:59 de esta semana
+ *   - Si no es lunes, se muestran los ya existentes (o nada si aún no hay).
  */
 class GenerarYGuardarRetosUseCase @Inject constructor(
     private val generarRetosIAUseCase: GenerarRetosIAUseCase,
@@ -21,41 +29,79 @@ class GenerarYGuardarRetosUseCase @Inject constructor(
     suspend operator fun invoke(uid: String, nombre: String): ResultadoRetos =
         withContext(Dispatchers.IO) {
             try {
-                // 1. ¿Ya hay retos generados hoy?
-                val retosDeHoy = challengeRepository.getChallengesCreatedToday(uid)
+                val retosParaMostrar = mutableListOf<Challenger>()
+                var fueronGenerados  = false
 
-                if (retosDeHoy.isNotEmpty()) {
-                    Log.d("VITA_LOG", "Ya existen ${retosDeHoy.size} retos de hoy. No se generan más.")
-                    return@withContext ResultadoRetos(
-                        retos = retosDeHoy,
-                        fueronGeneradosAhora = false
-                    )
+                // ──────────────────────────────────────────────────────────
+                // RETOS DIARIOS
+                // ──────────────────────────────────────────────────────────
+                val diariosDehoy = challengeRepository.getDailyChallengesDeHoy(uid)
+
+                if (diariosDehoy.isNotEmpty()) {
+                    Log.d("VITA_LOG", "Ya hay ${diariosDehoy.size} retos diarios para hoy.")
+                    retosParaMostrar.addAll(diariosDehoy)
+                } else {
+                    Log.d("VITA_LOG", "Generando retos DIARIOS para $nombre…")
+                    val nuevos = generarRetosIAUseCase.porTipo(uid, nombre, "DIARIO", cantidad = 4)
+
+                    if (nuevos.isNotEmpty()) {
+                        val conDeadline = nuevos.map { reto ->
+                            reto.copy(
+                                userId       = uid,
+                                status       = "ACTIVO",
+                                currentValue = 0,
+                                createdAt    = DateTimeUtils.getTodayStartMillis(),
+                                deadline     = DateTimeUtils.getTodayEndMillis()
+                            )
+                        }
+                        challengeRepository.insertChallenges(conDeadline)
+                        retosParaMostrar.addAll(conDeadline)
+                        fueronGenerados = true
+                        Log.d("VITA_LOG", "${conDeadline.size} retos diarios guardados.")
+                    } else {
+                        Log.w("VITA_LOG", "La IA no devolvió retos diarios.")
+                    }
                 }
 
-                // 2. No hay retos hoy → generamos con IA
-                Log.d("VITA_LOG", "No hay retos hoy. Generando con IA para $nombre...")
-                val retosIA = generarRetosIAUseCase(uid, nombre)
+                // ──────────────────────────────────────────────────────────
+                // RETOS SEMANALES
+                // ──────────────────────────────────────────────────────────
+                val semanalesExistentes = challengeRepository.getSemanalesEstaSemana(uid)
 
-                if (retosIA.isEmpty()) {
-                    Log.w("VITA_LOG", "La IA devolvió lista vacía.")
-                    return@withContext ResultadoRetos(retos = emptyList(), fueronGeneradosAhora = false)
+                if (semanalesExistentes.isNotEmpty()) {
+                    Log.d("VITA_LOG", "Ya hay ${semanalesExistentes.size} retos semanales esta semana.")
+                    retosParaMostrar.addAll(semanalesExistentes)
+                } else {
+                    if (DateTimeUtils.isMonday()) {
+                        Log.d("VITA_LOG", "Es lunes → generando retos SEMANALES para $nombre…")
+                        val nuevos = generarRetosIAUseCase.porTipo(uid, nombre, "SEMANAL", cantidad = 4)
+
+                        if (nuevos.isNotEmpty()) {
+                            val conDeadline = nuevos.map { reto ->
+                                reto.copy(
+                                    userId       = uid,
+                                    status       = "ACTIVO",
+                                    currentValue = 0,
+                                    createdAt    = DateTimeUtils.getMondayStartMillis(),
+                                    deadline     = DateTimeUtils.getThisSundayEndMillis()
+                                )
+                            }
+                            challengeRepository.insertChallenges(conDeadline)
+                            retosParaMostrar.addAll(conDeadline)
+                            fueronGenerados = true
+                            Log.d("VITA_LOG", "${conDeadline.size} retos semanales guardados hasta el domingo.")
+                        } else {
+                            Log.w("VITA_LOG", "La IA no devolvió retos semanales.")
+                        }
+                    } else {
+                        Log.d("VITA_LOG", "No es lunes. Sin retos semanales hasta el próximo lunes.")
+                    }
                 }
 
-                // 3. Completamos campos y persistimos
-                val retosListos = retosIA.map { reto ->
-                    reto.copy(
-                        userId = uid,
-                        status = "ACTIVO",
-                        currentValue = 0,
-                        deadline = System.currentTimeMillis() + 86_400_000L,
-                        createdAt = System.currentTimeMillis()
-                    )
-                }
-
-                challengeRepository.insertChallenges(retosListos)
-                Log.d("VITA_LOG", "${retosListos.size} retos nuevos guardados.")
-
-                ResultadoRetos(retos = retosListos, fueronGeneradosAhora = true)
+                ResultadoRetos(
+                    retos                = retosParaMostrar,
+                    fueronGeneradosAhora = fueronGenerados
+                )
 
             } catch (e: Exception) {
                 Log.e("VITA_LOG", "GenerarYGuardarRetosUseCase error: ${e.message}")
@@ -64,7 +110,6 @@ class GenerarYGuardarRetosUseCase @Inject constructor(
         }
 }
 
-// Wrapper para saber si la pantalla debe mostrar un mensaje de "¡Retos nuevos!"
 data class ResultadoRetos(
     val retos: List<Challenger>,
     val fueronGeneradosAhora: Boolean

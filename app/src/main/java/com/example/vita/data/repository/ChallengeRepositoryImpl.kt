@@ -7,7 +7,7 @@ import com.example.vita.domain.model.Challenger
 import com.example.vita.domain.repository.ChallengeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Calendar
+import com.example.vita.core.DateTimeUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,31 +37,46 @@ class ChallengeRepositoryImpl @Inject constructor(
         challengeDao.deleteChallenge(challengeId)
     }
 
-    override suspend fun getChallengesCreatedToday(uid: String): List<Challenger> =
+    // ─── Nuevos métodos ────────────────────────────────────────────────────
+
+    override suspend fun getDailyChallengesDeHoy(uid: String): List<Challenger> =
         withContext(Dispatchers.IO) {
-            val startOfDay = getStartOfDayMillis()
-            val endOfDay   = startOfDay + 86_400_000L
-            challengeDao.getAllChallengesDeHoy(uid, startOfDay, endOfDay).map { it.toDomain() }
+            challengeDao.getDailyChallengesDeHoy(
+                uid        = uid,
+                startOfDay = DateTimeUtils.getTodayMillis(),
+                endOfDay   = DateTimeUtils.getTodayEndMillis()
+            ).map { it.toDomain() }
         }
 
-    // ✅ Marca como EXPIRED los retos pasados de plazo
+    override suspend fun getSemanalesEstaSemana(uid: String): List<Challenger> =
+        withContext(Dispatchers.IO) {
+            challengeDao.getSemanalesEstaSemana(
+                uid          = uid,
+                startOfWeek  = DateTimeUtils.getMondayStartMillis(),
+                endOfWeek    = DateTimeUtils.getThisSundayEndMillis()
+            ).map { it.toDomain() }
+        }
+
+    override suspend fun getAllChallengesParaHoy(uid: String): List<Challenger> =
+        withContext(Dispatchers.IO) {
+            challengeDao.getAllChallengesParaHoy(
+                uid         = uid,
+                startOfDay  = DateTimeUtils.getTodayMillis(),
+                endOfDay    = DateTimeUtils.getTodayEndMillis(),
+                startOfWeek = DateTimeUtils.getMondayStartMillis(),
+                endOfWeek   = DateTimeUtils.getThisSundayEndMillis()
+            ).map { it.toDomain() }
+        }
+
     override suspend fun expirarRetosVencidos(uid: String) = withContext(Dispatchers.IO) {
         challengeDao.expirarRetosVencidos(uid, System.currentTimeMillis())
     }
 
-    // ✅ Devuelve todos los retos creados hoy (activos, completados y expirados)
-    override suspend fun getAllChallengesDeHoy(uid: String): List<Challenger> =
-        withContext(Dispatchers.IO) {
-            val startOfDay = getStartOfDayMillis()
-            val endOfDay   = startOfDay + 86_400_000L
-            challengeDao.getAllChallengesDeHoy(uid, startOfDay, endOfDay).map { it.toDomain() }
-        }
+    // ─── Legacy ────────────────────────────────────────────────────────────
 
-    private fun getStartOfDayMillis(): Long =
-        Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
+    override suspend fun getChallengesCreatedToday(uid: String): List<Challenger> =
+        getDailyChallengesDeHoy(uid)
+
+    override suspend fun getAllChallengesDeHoy(uid: String): List<Challenger> =
+        getAllChallengesParaHoy(uid)
 }

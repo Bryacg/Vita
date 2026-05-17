@@ -20,7 +20,6 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var filtroSeleccionado by remember { mutableStateOf("DIARIO") }
 
-    // ✅ Recarga al entrar a la pantalla para detectar expirados
     LaunchedEffect(Unit) {
         viewModel.cargarRetos()
     }
@@ -33,16 +32,16 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Centro de Desafíos",
-            style = MaterialTheme.typography.headlineMedium,
+            text       = "Centro de Desafíos",
+            style      = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier   = Modifier.padding(bottom = 8.dp)
         )
 
         if (uiState.isLoading) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(24.dp)
+                modifier            = Modifier.padding(24.dp)
             ) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 if (!uiState.mensajeCarga.isNullOrBlank()) {
@@ -52,9 +51,9 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
             }
         }
 
-        // Selector tipo reto
+        // Selector de tipo
         Row(
-            modifier = Modifier
+            modifier              = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -79,13 +78,19 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
 
         if (retosFiltrados.isEmpty() && !uiState.isLoading) {
             Box(
-                modifier = Modifier
+                modifier          = Modifier
                     .fillMaxWidth()
                     .height(200.dp),
-                contentAlignment = Alignment.Center
+                contentAlignment  = Alignment.Center
             ) {
+                // Mensaje diferenciado para semanales (se generan el lunes)
+                val mensaje = if (filtroSeleccionado == "SEMANAL")
+                    "Los retos semanales se generan cada lunes\ny duran hasta el domingo."
+                else
+                    "No tienes retos diarios para hoy."
+
                 Text(
-                    text  = "No tienes retos ${filtroSeleccionado.lowercase()}s para hoy.",
+                    text  = mensaje,
                     color = Color.Gray,
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -104,9 +109,9 @@ fun RetosScreen(viewModel: RetosViewModel = hiltViewModel()) {
 
         uiState.error?.let { error ->
             Text(
-                text  = error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
+                text     = error,
+                color    = MaterialTheme.colorScheme.error,
+                style    = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(8.dp)
             )
         }

@@ -16,62 +16,76 @@ import javax.inject.Singleton
 class GeminiRetosDataSource @Inject constructor(
     @RetosApi private val model: GenerativeModel
 ) {
-    // ✅ Gson vive aquí — capa Data, no en Domain
     private val gson = Gson()
 
-    suspend fun generarRetos(uid: String, nombre: String): List<Challenger> =
-        withContext(Dispatchers.IO) {
-            try {
-                val prompt = """
-                    Genera 8 retos de salud para $nombre en formato JSON.
-                    Formato: [{"name": "...", "description": "...", "type": "DIARIO",
-                    "targetValue": 5, "currentValue": 0, "deadline": 0, "status": "ACTIVO"}]
-                    Devuelve SOLO el array JSON, sin texto adicional.
-                """.trimIndent()
+    /**
+     * Genera retos de un tipo específico ("DIARIO" o "SEMANAL").
+     * El campo `deadline` se deja en 0 — el UseCase asigna el valor correcto.
+     */
+    suspend fun generarRetosPorTipo(
+        uid: String,
+        nombre: String,
+        tipo: String,
+        cantidad: Int = 4
+    ): List<Challenger> = withContext(Dispatchers.IO) {
+        try {
+            val descripcion = if (tipo == "SEMANAL")
+                "semanales (para completar durante toda la semana, con objetivos más altos)"
+            else
+                "diarios (para completar en un solo día)"
 
-                val response = model.generateContent(prompt)
-                val rawText = response.text ?: ""
-                Log.d("VITA_LOG", "GeminiRetosDataSource respuesta: $rawText")
+            val prompt = """
+                Genera exactamente $cantidad retos de salud $descripcion para $nombre.
+                Responde SOLO con un array JSON, sin texto adicional ni bloques de código.
+                El campo "type" debe ser exactamente "$tipo".
+                Formato: [{"name":"...","description":"...","type":"$tipo","targetValue":5,"currentValue":0,"deadline":0,"status":"ACTIVO"}]
+            """.trimIndent()
 
-                val startIndex = rawText.indexOf("[")
-                val endIndex = rawText.lastIndexOf("]")
-                if (startIndex == -1 || endIndex == -1) {
-                    Log.w("VITA_LOG", "GeminiRetosDataSource: JSON no encontrado")
-                    return@withContext emptyList()
-                }
+            val response  = model.generateContent(prompt)
+            val rawText   = response.text ?: ""
+            Log.d("VITA_LOG", "GeminiRetos [$tipo] respuesta: $rawText")
 
-                val jsonLimpio = rawText.substring(startIndex, endIndex + 1)
-                val type = object : TypeToken<List<ChallengerDto>>() {}.type
-                val dtos: List<ChallengerDto> = gson.fromJson(jsonLimpio, type)
-
-                // ✅ Mapea DTO → Dominio aquí, no en el UseCase
-                dtos.map { dto ->
-                    Challenger(
-                        id = 0,
-                        userId = uid,
-                        name = dto.name,
-                        description = dto.description,
-                        type = dto.type,
-                        targetValue = dto.targetValue,
-                        currentValue = 0,
-                        status = "ACTIVO",
-                        deadline = System.currentTimeMillis() + 86_400_000L
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("VITA_LOG", "GeminiRetosDataSource error: ${e.message}")
-                emptyList()
+            val start = rawText.indexOf("[")
+            val end   = rawText.lastIndexOf("]")
+            if (start == -1 || end == -1) {
+                Log.w("VITA_LOG", "GeminiRetos [$tipo]: JSON no encontrado")
+                return@withContext emptyList()
             }
+
+            val jsonLimpio = rawText.substring(start, end + 1)
+            val listType   = object : TypeToken<List<ChallengerDto>>() {}.type
+            val dtos: List<ChallengerDto> = gson.fromJson(jsonLimpio, listType)
+
+            dtos.map { dto ->
+                Challenger(
+                    id           = 0,
+                    userId       = uid,
+                    name         = dto.name,
+                    description  = dto.description,
+                    type         = tipo,              // forzamos el tipo correcto
+                    targetValue  = dto.targetValue,
+                    currentValue = 0,
+                    status       = "ACTIVO",
+                    deadline     = 0                  // el UseCase asigna el deadline real
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("VITA_LOG", "GeminiRetosDataSource [$tipo] error: ${e.message}")
+            emptyList()
         }
+    }
+
+    // Método legacy — genera diarios por defecto
+    suspend fun generarRetos(uid: String, nombre: String): List<Challenger> =
+        generarRetosPorTipo(uid, nombre, "DIARIO", 8)
 }
 
-// DTO privado — solo la capa Data lo conoce
 private data class ChallengerDto(
-    @SerializedName("name") val name: String = "",
-    @SerializedName("description") val description: String = "",
-    @SerializedName("type") val type: String = "DIARIO",
-    @SerializedName("targetValue") val targetValue: Int = 1,
-    @SerializedName("currentValue") val currentValue: Int = 0,
-    @SerializedName("deadline") val deadline: Long = 0,
-    @SerializedName("status") val status: String = "ACTIVO"
+    @SerializedName("name")         val name: String        = "",
+    @SerializedName("description")  val description: String = "",
+    @SerializedName("type")         val type: String        = "DIARIO",
+    @SerializedName("targetValue")  val targetValue: Int    = 1,
+    @SerializedName("currentValue") val currentValue: Int   = 0,
+    @SerializedName("deadline")     val deadline: Long      = 0,
+    @SerializedName("status")       val status: String      = "ACTIVO"
 )

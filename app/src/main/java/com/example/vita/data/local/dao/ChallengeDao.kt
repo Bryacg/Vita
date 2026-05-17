@@ -12,7 +12,6 @@ interface ChallengeDao {
     @Update
     suspend fun updateChallenger(challenger: ChallengeEntity)
 
-    // Retos activos (para lógica interna)
     @Query("""
         SELECT * FROM challenge 
         WHERE userId = :uid 
@@ -21,12 +20,52 @@ interface ChallengeDao {
     """)
     suspend fun getActiveChallenges(uid: String): List<ChallengeEntity>
 
-    // ✅ TODOS los retos de HOY: activos, completados Y expirados
+    /**
+     * Retos DIARIOS creados hoy (entre 00:00:00 y 23:59:59 de hoy)
+     */
     @Query("""
         SELECT * FROM challenge
         WHERE userId  = :uid
-        AND createdAt >= :startOfDay
-        AND createdAt <  :endOfDay
+        AND   type    IN ('DIARIO', 'diario')
+        AND   createdAt >= :startOfDay
+        AND   createdAt <= :endOfDay
+    """)
+    suspend fun getDailyChallengesDeHoy(
+        uid: String,
+        startOfDay: Long,
+        endOfDay: Long
+    ): List<ChallengeEntity>
+
+    /**
+     * Retos SEMANALES creados esta semana (entre lunes 00:00:01 y domingo 23:59:59)
+     */
+    @Query("""
+        SELECT * FROM challenge
+        WHERE userId  = :uid
+        AND   type    IN ('SEMANAL', 'semanal')
+        AND   createdAt >= :startOfWeek
+        AND   createdAt <= :endOfWeek
+    """)
+    suspend fun getSemanalesEstaSemana(
+        uid: String,
+        startOfWeek: Long,
+        endOfWeek: Long
+    ): List<ChallengeEntity>
+
+    /**
+     * Todos los retos para mostrar en pantalla:
+     *   - Diarios creados HOY
+     *   - Semanales creados esta semana (lunes–domingo)
+     * Ordenados: activos → en progreso → completados → expirados
+     */
+    @Query("""
+        SELECT * FROM challenge
+        WHERE userId = :uid
+        AND (
+            (type IN ('DIARIO',  'diario')  AND createdAt >= :startOfDay  AND createdAt <= :endOfDay)
+            OR
+            (type IN ('SEMANAL', 'semanal') AND createdAt >= :startOfWeek AND createdAt <= :endOfWeek)
+        )
         ORDER BY
             CASE status
                 WHEN 'ACTIVO'    THEN 1
@@ -37,19 +76,23 @@ interface ChallengeDao {
             END ASC,
             deadline ASC
     """)
-    suspend fun getAllChallengesDeHoy(
+    suspend fun getAllChallengesParaHoy(
         uid: String,
         startOfDay: Long,
-        endOfDay: Long
+        endOfDay: Long,
+        startOfWeek: Long,
+        endOfWeek: Long
     ): List<ChallengeEntity>
 
-    // ✅ Marca como EXPIRED los que pasaron su deadline y siguen activos
+    /**
+     * Marca como EXPIRED los retos cuyo deadline ya pasó y siguen activos
+     */
     @Query("""
         UPDATE challenge
         SET status = 'EXPIRED'
         WHERE userId = :uid
-        AND deadline < :ahora
-        AND status IN ('ACTIVE', 'ACTIVO', 'PROGRESSO')
+        AND   deadline < :ahora
+        AND   status IN ('ACTIVE', 'ACTIVO', 'PROGRESSO')
     """)
     suspend fun expirarRetosVencidos(uid: String, ahora: Long)
 
