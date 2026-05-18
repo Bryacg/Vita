@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.example.vita.ui.components.CardGame
 import com.example.vita.ui.components.home.CardAddMealForm
+import com.example.vita.ui.components.home.CardComidasHoy
 import com.example.vita.ui.components.home.CardFoodSummary
 import com.example.vita.ui.components.home.CardInf
 import com.example.vita.ui.components.retos.CardRetosD
@@ -24,10 +25,9 @@ fun HomeScreen(
     navController: NavHostController,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     var isAddingFood by remember { mutableStateOf(false) }
 
-    // Sin Scaffold anidado ni ChatBotFab — ambos ya están en AppNavigation
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -38,8 +38,8 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text  = "¡Bienvenido a VitaGame!",
-            style = MaterialTheme.typography.headlineSmall,
+            text       = "¡Bienvenido a VitaGame!",
+            style      = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
 
@@ -48,9 +48,13 @@ fun HomeScreen(
         when {
             uiState.isLoading -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    modifier         = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
                     contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+                ) {
+                    CircularProgressIndicator()
+                }
             }
 
             uiState.error != null -> {
@@ -62,7 +66,8 @@ fun HomeScreen(
             }
 
             else -> {
-                // 1. Info del usuario
+
+                // 1. Tarjeta de usuario
                 uiState.user?.let { user ->
                     uiState.progress?.let { progress ->
                         CardInf(user = user, progress = progress)
@@ -71,7 +76,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 2. Nutrición
+                // 2. Nutrición — resumen o formulario
                 if (!isAddingFood) {
                     CardFoodSummary(
                         totalCalories      = uiState.totalCaloriesHoy,
@@ -80,22 +85,33 @@ fun HomeScreen(
                     )
                 } else {
                     CardAddMealForm(
-                        onSave   = { nombre, kcal ->
-                            viewModel.registrarNuevaComida(nombre, kcal, 70)
+                        onSave   = { nombre, kcal, salud ->
+                            viewModel.registrarNuevaComida(nombre, kcal, salud)
                             isAddingFood = false
                         },
                         onCancel = { isAddingFood = false }
                     )
                 }
 
+                // 3. Lista de comidas del día (se actualiza en tiempo real)
+                if (uiState.comidasHoy.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CardComidasHoy(
+                        comidas    = uiState.comidasHoy,
+                        onEliminar = { mealId -> viewModel.eliminarComida(mealId) }
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 3. Reto del día
+                // 4. Reto del día
                 Text(
                     text       = "Reto del día",
                     style      = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    modifier   = Modifier.fillMaxWidth().padding(start = 4.dp)
+                    modifier   = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 4.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -113,7 +129,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 4. Minijuego
+                // 5. Minijuego
                 CardGame(
                     titulo      = "Minijuego de Velocidad",
                     descripcion = "¡Gana XP extra completando tus retos diarios!",
