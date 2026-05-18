@@ -15,33 +15,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
-// ─── Formulario para registrar una comida ─────────────────────────────────────
-
-private data class OpcionSalud(
-    val etiqueta: String,
-    val puntos: Int,
-    val color: Color
-)
-
-private val opcionesSalud = listOf(
-    OpcionSalud("Muy saludable", 90, Color(0xFF2E7D32)),
-    OpcionSalud("Saludable",     70, Color(0xFF4CAF50)),
-    OpcionSalud("Regular",       50, Color(0xFFF2994A)),
-    OpcionSalud("Poco sano",     20, Color(0xFFC62828))
-)
+// ─── Formulario de registro simplificado ─────────────────────────────────────
 
 @Composable
 fun CardAddMealForm(
-    // onSave ahora recibe también el healthyScore elegido por el usuario
-    onSave: (nombre: String, kcal: Int, healthScore: Int) -> Unit,
+    onSave: (nombre: String, kcal: Int) -> Unit,   // sin healthScore manual
     onCancel: () -> Unit
 ) {
-    var foodName      by remember { mutableStateOf("") }
-    var calories      by remember { mutableStateOf("") }
-    var selectedScore by remember { mutableStateOf(70) }
+    var foodName  by remember { mutableStateOf("") }
+    var calories  by remember { mutableStateOf("") }
 
     ElevatedCard(
-        modifier = Modifier
+        modifier  = Modifier
             .fillMaxWidth()
             .padding(16.dp)
             .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
@@ -51,10 +36,25 @@ fun CardAddMealForm(
         Column(modifier = Modifier.padding(16.dp)) {
 
             Text(
-                text  = "Registrar Alimento",
+                text  = "Registrar alimento",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Aviso de clasificación automática
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(
+                    text     = "La calidad nutricional se calcula automáticamente.",
+                    style    = MaterialTheme.typography.labelSmall,
+                    color    = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -69,44 +69,19 @@ fun CardAddMealForm(
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
-                value         = calories,
-                onValueChange = { if (it.all { c -> c.isDigit() }) calories = it },
-                label         = { Text("Calorías (kcal)") },
-                modifier      = Modifier.fillMaxWidth(),
+                value           = calories,
+                onValueChange   = { if (it.all { c -> c.isDigit() }) calories = it },
+                label           = { Text("Calorías (kcal)") },
+                modifier        = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine    = true
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text  = "Calidad nutricional",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Chips de calidad — el usuario elige cuán saludable es la comida
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                opcionesSalud.forEach { opcion ->
-                    val seleccionado = selectedScore == opcion.puntos
-                    FilterChip(
-                        selected = seleccionado,
-                        onClick  = { selectedScore = opcion.puntos },
-                        label    = {
-                            Text(
-                                text  = opcion.etiqueta,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = opcion.color.copy(alpha = 0.2f),
-                            selectedLabelColor     = opcion.color
-                        )
+                singleLine      = true,
+                supportingText  = {
+                    Text(
+                        text  = "Más de ${com.example.vita.domain.model.GameConfig.LIMITE_CALORIAS_INGESTA} kcal se clasifica como \"Poco sano\"",
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
-            }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -117,13 +92,13 @@ fun CardAddMealForm(
                 TextButton(onClick = onCancel) { Text("Cancelar") }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
-                    onClick  = {
+                    onClick = {
                         val kcal = calories.toIntOrNull() ?: return@Button
                         if (foodName.isNotBlank() && kcal > 0) {
-                            onSave(foodName, kcal, selectedScore)
+                            onSave(foodName.trim(), kcal)
                         }
                     },
-                    enabled  = foodName.isNotBlank() && calories.isNotBlank()
+                    enabled = foodName.isNotBlank() && calories.isNotBlank()
                 ) {
                     Text("Guardar")
                 }
@@ -158,9 +133,9 @@ fun CardFoodSummary(
         Column(modifier = Modifier.padding(16.dp)) {
 
             Row(
-                modifier             = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment    = Alignment.CenterVertically
+                verticalAlignment     = Alignment.CenterVertically
             ) {
                 Column {
                     Text(

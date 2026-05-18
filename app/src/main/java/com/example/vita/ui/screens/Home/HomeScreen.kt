@@ -1,5 +1,10 @@
 package com.example.vita.ui.screens.Home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,11 +12,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import com.example.vita.domain.model.NutritionCategory
 import com.example.vita.ui.components.CardGame
 import com.example.vita.ui.components.home.CardAddMealForm
 import com.example.vita.ui.components.home.CardComidasHoy
@@ -19,6 +26,7 @@ import com.example.vita.ui.components.home.CardFoodSummary
 import com.example.vita.ui.components.home.CardInf
 import com.example.vita.ui.components.retos.CardRetosD
 import com.example.vita.ui.navigation.Routes
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
@@ -27,6 +35,14 @@ fun HomeScreen(
 ) {
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     var isAddingFood by remember { mutableStateOf(false) }
+
+    // Auto-oculta el banner de feedback tras 3 segundos
+    LaunchedEffect(uiState.ultimaNutricion) {
+        if (uiState.ultimaNutricion != null) {
+            delay(3_000)
+            viewModel.limpiarFeedbackNutricion()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -48,13 +64,9 @@ fun HomeScreen(
         when {
             uiState.isLoading -> {
                 Box(
-                    modifier         = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
+                    modifier         = Modifier.fillMaxWidth().height(200.dp),
                     contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                ) { CircularProgressIndicator() }
             }
 
             uiState.error != null -> {
@@ -74,9 +86,67 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // 2. Nutrición — resumen o formulario
+                // 2. Banner de feedback tras registrar comida
+                AnimatedVisibility(
+                    visible = uiState.ultimaNutricion != null,
+                    enter   = fadeIn() + slideInVertically(),
+                    exit    = fadeOut() + slideOutVertically()
+                ) {
+                    uiState.ultimaNutricion?.let { resultado ->
+                        val (bgColor, textColor) = when (resultado.nutritionCategory) {
+                            NutritionCategory.MUY_SALUDABLE ->
+                                Color(0xFF2E7D32) to Color.White
+                            NutritionCategory.SALUDABLE ->
+                                Color(0xFF4CAF50) to Color.White
+                            NutritionCategory.REGULAR ->
+                                Color(0xFFF2994A) to Color.White
+                            NutritionCategory.POCO_SANO ->
+                                Color(0xFFC62828) to Color.White
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            color    = bgColor,
+                            shape    = MaterialTheme.shapes.medium
+                        ) {
+                            Row(
+                                modifier              = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment     = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text       = resultado.category,
+                                        style      = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color      = textColor
+                                    )
+                                    if (resultado.isOverCalorieLimit) {
+                                        Text(
+                                            text  = "Superaste el límite de ${com.example.vita.domain.model.GameConfig.LIMITE_CALORIAS_INGESTA} kcal",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = textColor.copy(alpha = 0.85f)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text       = "+${resultado.xpEarned} XP",
+                                    style      = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = textColor
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. Nutrición — resumen o formulario
                 if (!isAddingFood) {
                     CardFoodSummary(
                         totalCalories      = uiState.totalCaloriesHoy,
@@ -85,15 +155,15 @@ fun HomeScreen(
                     )
                 } else {
                     CardAddMealForm(
-                        onSave   = { nombre, kcal, salud ->
-                            viewModel.registrarNuevaComida(nombre, kcal, salud)
+                        onSave   = { nombre, kcal ->
+                            viewModel.registrarNuevaComida(nombre, kcal)
                             isAddingFood = false
                         },
                         onCancel = { isAddingFood = false }
                     )
                 }
 
-                // 3. Lista de comidas del día (se actualiza en tiempo real)
+                // 4. Lista de comidas del día
                 if (uiState.comidasHoy.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     CardComidasHoy(
@@ -104,14 +174,12 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 4. Reto del día
+                // 5. Reto del día
                 Text(
                     text       = "Reto del día",
                     style      = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    modifier   = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 4.dp)
+                    modifier   = Modifier.fillMaxWidth().padding(start = 4.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -129,7 +197,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 5. Minijuego
+                // 6. Minijuego
                 CardGame(
                     titulo      = "Minijuego de Velocidad",
                     descripcion = "¡Gana XP extra completando tus retos diarios!",
