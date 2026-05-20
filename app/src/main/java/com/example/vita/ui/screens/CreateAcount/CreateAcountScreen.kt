@@ -20,14 +20,27 @@ import com.example.vita.R
 fun CreateAccountScreen(
     viewModel: CreateAccountViewModel = hiltViewModel(),
     onCreateAccountAttempt: (String, String, String, String) -> Unit,
-    onNavigateBackToLogin: () -> Unit
+    onNavigateBackToLogin: () -> Unit,
+    onNavigateToHome: () -> Unit,        // cuenta creada, perfil ya existe
+    onNavigateToProfile: () -> Unit      // cuenta nueva, necesita perfil
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    var name by remember { mutableStateOf("") }
+    var name     by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var email    by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    // Navega automáticamente cuando el registro es exitoso
+    LaunchedEffect(uiState.success) {
+        if (uiState.success) {
+            if (uiState.navigateToProfile) {
+                onNavigateToProfile()
+            } else {
+                onNavigateToHome()
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -35,19 +48,19 @@ fun CreateAccountScreen(
             .background(MaterialTheme.colorScheme.primary)
     ) {
         Box(
-            modifier = Modifier
+            modifier         = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.4f),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
-                    painter = painterResource(R.drawable.ic_apple),
+                    painter            = painterResource(R.drawable.ic_apple),
                     contentDescription = "Logo",
-                    modifier = Modifier.size(64.dp)
+                    modifier           = Modifier.size(64.dp)
                 )
                 Text(
-                    text = "VitaGame",
+                    text  = "VitaGame",
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
@@ -66,53 +79,59 @@ fun CreateAccountScreen(
                 .padding(24.dp)
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
+                verticalArrangement   = Arrangement.spacedBy(16.dp),
+                horizontalAlignment   = Alignment.CenterHorizontally,
+                modifier              = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "Crear Cuenta",
+                    text  = "Crear Cuenta",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 OutlinedTextField(
-                    value = name,
+                    value         = name,
                     onValueChange = { name = it },
-                    label = { Text("Nombre") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading,
-                    singleLine = true
+                    label         = { Text("Nombre") },
+                    modifier      = Modifier.fillMaxWidth(),
+                    enabled       = !uiState.isLoading,
+                    singleLine    = true
                 )
 
                 OutlinedTextField(
-                    value = lastName,
+                    value         = lastName,
                     onValueChange = { lastName = it },
-                    label = { Text("Apellido") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading,
-                    singleLine = true
+                    label         = { Text("Apellido") },
+                    modifier      = Modifier.fillMaxWidth(),
+                    enabled       = !uiState.isLoading,
+                    singleLine    = true
                 )
 
                 OutlinedTextField(
-                    value = email,
+                    value         = email,
                     onValueChange = { email = it },
-                    label = { Text("Correo Electrónico") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading,
-                    singleLine = true
+                    label         = { Text("Correo Electrónico") },
+                    modifier      = Modifier.fillMaxWidth(),
+                    enabled       = !uiState.isLoading,
+                    singleLine    = true
                 )
 
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Contraseña") },
+                    value                = password,
+                    onValueChange        = { password = it },
+                    label                = { Text("Contraseña") },
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading,
-                    singleLine = true
+                    modifier             = Modifier.fillMaxWidth(),
+                    enabled              = !uiState.isLoading,
+                    singleLine           = true,
+                    supportingText       = {
+                        Text(
+                            "Mínimo 6 caracteres",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 )
 
                 if (uiState.isLoading) {
@@ -120,18 +139,19 @@ fun CreateAccountScreen(
                 }
 
                 Button(
-                    onClick = { onCreateAccountAttempt(name, lastName, email, password) },
+                    onClick  = {
+                        onCreateAccountAttempt(name, lastName, email, password)
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
+                    colors   = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        contentColor   = MaterialTheme.colorScheme.onPrimary
                     ),
-                    // ✅ lastName.isNotBlank() agregado
-                    enabled = !uiState.isLoading
+                    enabled  = !uiState.isLoading
                             && name.isNotBlank()
                             && lastName.isNotBlank()
                             && email.isNotBlank()
-                            && password.isNotBlank()
+                            && password.length >= 6
                 ) {
                     Text("Registrarse")
                 }
@@ -141,17 +161,23 @@ fun CreateAccountScreen(
                     enabled = !uiState.isLoading
                 ) {
                     Text(
-                        text = "Volver al Login",
+                        text  = "Volver al Login",
                         color = MaterialTheme.colorScheme.secondary
                     )
                 }
 
                 if (uiState.error != null) {
-                    Text(
-                        text = uiState.error ?: "",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text     = uiState.error ?: "",
+                            color    = MaterialTheme.colorScheme.onErrorContainer,
+                            style    = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
         }
