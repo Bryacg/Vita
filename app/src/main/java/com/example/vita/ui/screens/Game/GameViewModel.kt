@@ -42,14 +42,13 @@ class GameViewModel @Inject constructor(
     // Llamado por la Screen cuando el usuario regresa del juego
     fun onRegresarDeJuego(resultado: String?) {
         val uid = authRepository.getCurrentUserId() ?: return
-        if (resultado == null) {
-            _uiState.update { it.copy(juegoActivo = false) }
-            return
-        }
 
         viewModelScope.launch {
             try {
-                val xpGanada = if (resultado == "GANASTE") GameConfig.XP_MINIJUEGO_GODOT else 0
+                // Limpiar resultado después de procesarlo
+                val resultadoFinal = resultado ?: return@launch
+
+                val xpGanada = if (resultadoFinal == "GANASTE") GameConfig.XP_MINIJUEGO_GODOT else 0
 
                 procesarResultadoJuegoUseCase(GameResult(
                     id       = 0,

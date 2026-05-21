@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
+    <!-- 2. SEGUNDO: El bloque <queries> -->
+    <queries>
+        <package android:name="com.example.atrapasalud" />
+        <package android:name="com.example.velocidad" />
+    </queries>
+
     <application
         android:name=".VitaGameApp"
         android:allowBackup="false"

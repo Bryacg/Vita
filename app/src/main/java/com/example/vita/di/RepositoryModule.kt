@@ -10,6 +10,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import android.content.Context
+import com.example.vita.data.local.datasource.GodotGameDataSource
+import com.example.vita.domain.repository.GodotGameRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -54,4 +57,12 @@ object RepositoryModule {
     @Provides @Singleton
     fun provideAchievementRepository(dao: ArchivementDao): AchievementRepository =
         AchievementRepositoryImpl(dao)
+
+    @Provides @Singleton
+    fun provideGodotGameDataSource(context: Context): GodotGameDataSource =
+        GodotGameDataSource(context)
+
+    @Provides @Singleton
+    fun provideGodotGameRepository(dataSource: GodotGameDataSource): GodotGameRepository =
+        GodotGameRepositoryImpl(dataSource)
 }
