@@ -32,8 +32,12 @@ class GameViewModel @Inject constructor(
     private val _navegarAJuego = MutableSharedFlow<String>()
     val navegarAJuego: SharedFlow<String> = _navegarAJuego.asSharedFlow()
 
+    // Registro del juego activo para identificarlo después
+    private var juegoActual: String = ""
+
     fun solicitarAbrirJuego(packageName: String = "com.example.atrapasalud") {
         viewModelScope.launch {
+            juegoActual = packageName  // Guardar qué juego se abrió
             _uiState.update { it.copy(juegoActivo = true, mensajeResultado = null) }
             _navegarAJuego.emit(packageName)
         }
@@ -50,10 +54,17 @@ class GameViewModel @Inject constructor(
 
                 val xpGanada = if (resultadoFinal == "GANASTE") GameConfig.XP_MINIJUEGO_GODOT else 0
 
+                // Determinar nombre del juego según el package
+                val nombreJuego = when (juegoActual) {
+                    "com.example.atrapasalud" -> "AtrapaSalud"
+                    "com.example.velocidad" -> "Velocidad"
+                    else -> "Juego"
+                }
+
                 procesarResultadoJuegoUseCase(GameResult(
                     id       = 0,
                     userId   = uid,
-                    name     = "AtrapaSalud",
+                    name     = nombreJuego,
                     weight   = 10,
                     xpEarned = xpGanada,
                     date     = System.currentTimeMillis()

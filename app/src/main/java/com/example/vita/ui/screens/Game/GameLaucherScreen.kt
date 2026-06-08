@@ -86,8 +86,8 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
         )
 
         CardGame(
-            titulo      = "Velocidad",
-            descripcion = "Presiona el botón lo más rápido posible",
+            titulo      = "Nutri Defensores",
+            descripcion = "Golpea a la comida chatarra si no tienes puntos y golpeas a una comida buena perderas",
             onclic      = { viewModel.solicitarAbrirJuego("com.example.velocidad") }
         )
 
