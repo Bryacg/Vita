@@ -4,15 +4,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,18 +23,13 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -49,30 +39,54 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
+import com.example.vita.ui.components.game.GameHeroHeader
 
 @Composable
 fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // ── Launcher (lógica intacta) ─────────────────────────────────────────
+    // ── Launcher con DEBUG y reintentos ───────────────────────────────────
     val juegoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { _ ->
         val archivo = File(context.getExternalFilesDir(null), "game_result.txt")
+        android.util.Log.d("GameLauncher", "🎮 Intent regresó - Buscando archivo en: ${archivo.absolutePath}")
+        
         val resultado = if (archivo.exists()) {
-            val texto = archivo.readText().trim()
-            archivo.delete()
-            texto.ifBlank { null }
-        } else null
+            try {
+                val texto = archivo.readText().trim()
+                android.util.Log.d("GameLauncher", "✅ Archivo encontrado. Contenido: '$texto'")
+                archivo.delete()
+                android.util.Log.d("GameLauncher", "🗑️ Archivo eliminado")
+                texto.ifBlank { null }
+            } catch (e: Exception) {
+                android.util.Log.e("GameLauncher", "❌ Error leyendo archivo: ${e.message}", e)
+                null
+            }
+        } else {
+            android.util.Log.w("GameLauncher", "⚠️ Archivo NO encontrado en: ${archivo.absolutePath}")
+            android.util.Log.w("GameLauncher", "📂 Contenido del directorio:")
+            val dir = context.getExternalFilesDir(null)
+            dir?.listFiles()?.forEach { file ->
+                android.util.Log.w("GameLauncher", "  - ${file.name} (${file.length()} bytes)")
+            } ?: android.util.Log.w("GameLauncher", "  (Directorio no existe)")
+            null
+        }
         viewModel.onRegresarDeJuego(resultado)
     }
-
+    
     LaunchedEffect(Unit) {
         viewModel.navegarAJuego.collect { packageName ->
+            android.util.Log.d("GameLauncher", "🎮 Intentando lanzar: $packageName")
             val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-            if (intent != null) juegoLauncher.launch(intent)
-            else viewModel.onRegresarDeJuego(null)
+            if (intent != null) {
+                android.util.Log.d("GameLauncher", "✅ Intent creado, lanzando...")
+                juegoLauncher.launch(intent)
+            } else {
+                android.util.Log.e("GameLauncher", "❌ APK no encontrada: $packageName")
+                viewModel.onRegresarDeJuego(null)
+            }
         }
     }
 
@@ -182,120 +196,9 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
 
 // ── Cabecera hero ─────────────────────────────────────────────────────────────
 
-@Composable
-private fun GameHeroHeader() {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Reverse),
-        label = "pulse"
-    )
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.60f),
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
 
-                    )
-                )
-            )
-    ) {
-        // Decoración de fondo: círculos sutiles
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                color = Color.White.copy(alpha = pulseAlpha * 0.08f),
-                radius = 160.dp.toPx(),
-                center = Offset(size.width * 0.85f, size.height * 0.2f)
-            )
-            drawCircle(
-                color = Color.White.copy(alpha = 0.05f),
-                radius = 80.dp.toPx(),
-                center = Offset(size.width * 0.1f, size.height * 0.9f)
-            )
-            drawCircle(
-                color = Color(0xFFFFC107).copy(alpha = pulseAlpha * 0.12f),
-                radius = 50.dp.toPx(),
-                center = Offset(size.width * 0.75f, size.height * 0.75f),
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(horizontal = 24.dp, vertical = 20.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SportsEsports,
-                    contentDescription = null,
-                    tint = Color(0xFFFFC107),
-                    modifier = Modifier.size(32.dp)
-                )
-                Text(
-                    text = "VitaGames",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Juega, aprende y gana XP real",
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.75f)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Píldora de info
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                XpPill(icon = Icons.Default.LocalFireDepartment, texto = "+170 XP por victoria")
-                XpPill(icon = Icons.Default.EmojiEvents, texto = "Desbloquea logros")
-            }
-        }
-    }
-}
-
-@Composable
-private fun XpPill(icon: ImageVector, texto: String) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White.copy(alpha = 0.15f))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color(0xFFFFC107),
-            modifier = Modifier.size(13.dp)
-        )
-        Text(
-            text = texto,
-            fontSize = 11.sp,
-            color = Color.White.copy(alpha = 0.9f),
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
 
 // ── Banner de resultado ───────────────────────────────────────────────────────
 
