@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.vita.ui.charts.BmiIndicator
 import com.example.vita.ui.charts.WeeklyCaloriesLineChart
 import com.example.vita.ui.charts.WeeklyXpChart
+import com.example.vita.ui.components.ProgresoHeroHeader
 
 @Composable
 fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
@@ -27,133 +28,150 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize()
     ) {
-        // ── Cabecera ──────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            Text(
-                text       = "Mi progreso",
-                style      = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            IconButton(onClick = { viewModel.refrescar() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
-            }
-        }
 
-        if (uiState.isLoading) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // ── Grid 2×2 de estadísticas ──────────────────────────────────────
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    titulo    = "Nivel",
-                    valor     = "${uiState.nivelActual}",
-                    subtitulo = "alcanzado",
-                    color     = MaterialTheme.colorScheme.primary,
-                    modifier  = Modifier.weight(1f)
-                )
-                StatCard(
-                    titulo    = "Experiencia",
-                    valor     = "${uiState.xpTotal}",
-                    subtitulo = "XP acumulada",
-                    color     = Color(0xFFFFC107),
-                    modifier  = Modifier.weight(1f)
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    titulo    = "Comidas",
-                    valor     = "${uiState.totalComidas}",
-                    subtitulo = "registradas",
-                    color     = Color(0xFF4CAF50),
-                    modifier  = Modifier.weight(1f)
-                )
-                StatCard(
-                    titulo    = "Logros",
-                    valor     = "${uiState.logrosDesbloqueados}/${uiState.totalLogros}",
-                    subtitulo = "obtenidos",
-                    color     = Color(0xFFDAA520),
-                    modifier  = Modifier.weight(1f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Racha ──────────────────────────────────────────────────────────
-        RachaCard(
-            racha    = uiState.rachaActual,
-            modifier = Modifier.padding(horizontal = 16.dp)
+        // ── 1. Cabecera hero ──────────────────────────────────────────────
+        ProgresoHeroHeader(
+            nivel               = uiState.nivelActual,
+            xpTotal             = uiState.xpTotal,
+            rachaActual         = uiState.rachaActual,
+            logrosDesbloqueados = uiState.logrosDesbloqueados,
+            totalLogros         = uiState.totalLogros
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // ── 2. Contenido scrollable ───────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
 
-        // ── IMC ────────────────────────────────────────────────────────────
-        SeccionCard(titulo = "Índice de masa corporal") {
-            BmiIndicator(imc = uiState.imc)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── XP semanal (barras) ────────────────────────────────────────────
-        SeccionCard(titulo = "XP ganada esta semana") {
-            if (uiState.progresoDeSemana.isEmpty() && !uiState.isLoading) {
-                Text(
-                    text  = "Completa retos o minijuegos para ver tu progreso aquí.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                WeeklyXpChart(progresoDeSemana = uiState.progresoDeSemana)
+            // Barra de carga lineal
+            if (uiState.isLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Calorías semanales (líneas) — nuevo ────────────────────────────
-        SeccionCard(titulo = "Calorías consumidas esta semana") {
-            if (uiState.caloriasSemanales.all { it == 0 } && !uiState.isLoading) {
+            // ── Cabecera de sección con botón refresh ─────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
                 Text(
-                    text  = "Registra tus comidas para ver el consumo calórico aquí.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text       = "Estadísticas",
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            } else {
-                WeeklyCaloriesLineChart(caloriasSemanales = uiState.caloriasSemanales)
+                IconButton(onClick = { viewModel.refrescar() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
+                }
             }
-        }
 
-        // ── Error silencioso ───────────────────────────────────────────────
-        uiState.error?.let {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text     = "Algunos datos no pudieron cargarse.",
-                style    = MaterialTheme.typography.labelSmall,
-                color    = MaterialTheme.colorScheme.error,
+            // ── Grid 2×2 de estadísticas ──────────────────────────────────
+            Column(
+                modifier            = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatCard(
+                        titulo    = "Nivel",
+                        valor     = "${uiState.nivelActual}",
+                        subtitulo = "alcanzado",
+                        color     = MaterialTheme.colorScheme.primary,
+                        modifier  = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        titulo    = "Experiencia",
+                        valor     = "${uiState.xpTotal}",
+                        subtitulo = "XP acumulada",
+                        color     = Color(0xFFFFC107),
+                        modifier  = Modifier.weight(1f)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatCard(
+                        titulo    = "Comidas",
+                        valor     = "${uiState.totalComidas}",
+                        subtitulo = "registradas",
+                        color     = Color(0xFF4CAF50),
+                        modifier  = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        titulo    = "Logros",
+                        valor     = "${uiState.logrosDesbloqueados}/${uiState.totalLogros}",
+                        subtitulo = "obtenidos",
+                        color     = Color(0xFFDAA520),
+                        modifier  = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Racha ─────────────────────────────────────────────────────
+            RachaCard(
+                racha    = uiState.rachaActual,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-        }
 
-        Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── IMC ───────────────────────────────────────────────────────
+            SeccionCard(titulo = "Índice de masa corporal") {
+                BmiIndicator(imc = uiState.imc)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── XP semanal (barras) ───────────────────────────────────────
+            SeccionCard(titulo = "XP ganada esta semana") {
+                if (uiState.progresoDeSemana.isEmpty() && !uiState.isLoading) {
+                    Text(
+                        text  = "Completa retos o minijuegos para ver tu progreso aquí.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    WeeklyXpChart(progresoDeSemana = uiState.progresoDeSemana)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Calorías semanales (líneas) ───────────────────────────────
+            SeccionCard(titulo = "Calorías consumidas esta semana") {
+                if (uiState.caloriasSemanales.all { it == 0 } && !uiState.isLoading) {
+                    Text(
+                        text  = "Registra tus comidas para ver el consumo calórico aquí.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    WeeklyCaloriesLineChart(caloriasSemanales = uiState.caloriasSemanales)
+                }
+            }
+
+            // ── Error silencioso ──────────────────────────────────────────
+            uiState.error?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text     = "Algunos datos no pudieron cargarse.",
+                    style    = MaterialTheme.typography.labelSmall,
+                    color    = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(80.dp))
+        }
     }
 }
 
-// ── Componentes internos ───────────────────────────────────────────────────
+// ── Componentes internos ──────────────────────────────────────────────────────
 
 @Composable
 private fun StatCard(
@@ -211,10 +229,10 @@ private fun RachaCard(racha: Int, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector       = Icons.Default.LocalFireDepartment,
+                imageVector        = Icons.Default.LocalFireDepartment,
                 contentDescription = null,
-                tint              = color,
-                modifier          = Modifier.size(36.dp)
+                tint               = color,
+                modifier           = Modifier.size(36.dp)
             )
             Column {
                 Text(

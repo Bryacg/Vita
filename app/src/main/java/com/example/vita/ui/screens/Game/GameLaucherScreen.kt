@@ -199,8 +199,10 @@ private fun GameHeroHeader() {
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF354E16),
-                        Color(0xFF4C662B)
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.60f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+
                     )
                 )
             )
