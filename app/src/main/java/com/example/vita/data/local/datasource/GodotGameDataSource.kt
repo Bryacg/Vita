@@ -1,20 +1,20 @@
 package com.example.vita.data.local.datasource
 
-import android.content.Context
+import android.os.Environment
 import java.io.File
 
-class GodotGameDataSource(private val context: Context) {
-    private val RESULT_FILE_NAME = "game_result.txt"
+class GodotGameDataSource {
+    companion object {
+        private const val RESULT_FILE_NAME = "game_result.txt"
+        private val RESULT_DIR get() = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+    }
 
-    /**
-     * Lee el resultado del juego escrito por Godot
-     */
     fun readGameResult(): String? {
         return try {
-            val archivo = File(context.getExternalFilesDir(null), RESULT_FILE_NAME)
+            val archivo = File(RESULT_DIR, RESULT_FILE_NAME)
             if (archivo.exists()) {
                 val resultado = archivo.readText().trim()
-                archivo.delete() // Limpiar después de leer
+                archivo.delete()
                 resultado.ifBlank { null }
             } else {
                 null
@@ -24,24 +24,18 @@ class GodotGameDataSource(private val context: Context) {
         }
     }
 
-    /**
-     * Escribe un resultado en el archivo (para testing)
-     */
     fun writeGameResult(result: String) {
         try {
-            val archivo = File(context.getExternalFilesDir(null), RESULT_FILE_NAME)
+            val archivo = File(RESULT_DIR, RESULT_FILE_NAME)
             archivo.writeText(result)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    /**
-     * Limpia el archivo de resultado
-     */
     fun clearGameResult() {
         try {
-            val archivo = File(context.getExternalFilesDir(null), RESULT_FILE_NAME)
+            val archivo = File(RESULT_DIR, RESULT_FILE_NAME)
             if (archivo.exists()) {
                 archivo.delete()
             }

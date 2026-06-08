@@ -40,7 +40,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
 import com.example.vita.ui.components.game.GameHeroHeader
-import android.os.Environment
 
 @Composable
 fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
@@ -51,7 +50,7 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
     val juegoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { _ ->
-        val archivo = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "game_result.txt")
+        val archivo = File(context.getExternalFilesDir(null), "game_result.txt")
         android.util.Log.d("GameLauncher", "🎮 Intent regresó - Buscando archivo en: ${archivo.absolutePath}")
         
         val resultado = if (archivo.exists()) {
@@ -65,10 +64,10 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
                 android.util.Log.e("GameLauncher", "❌ Error leyendo archivo: ${e.message}", e)
                 null
             }
-         } else {
+        } else {
             android.util.Log.w("GameLauncher", "⚠️ Archivo NO encontrado en: ${archivo.absolutePath}")
-            android.util.Log.w("GameLauncher", "📂 Contenido del directorio /sdcard/Documents/:")
-            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            android.util.Log.w("GameLauncher", "📂 Contenido del directorio:")
+            val dir = context.getExternalFilesDir(null)
             dir?.listFiles()?.forEach { file ->
                 android.util.Log.w("GameLauncher", "  - ${file.name} (${file.length()} bytes)")
             } ?: android.util.Log.w("GameLauncher", "  (Directorio no existe)")

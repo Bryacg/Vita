@@ -2,6 +2,7 @@ package com.example.vita.ui.screens.Game
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vita.data.remote.godot.GameResultBuffer
 import com.example.vita.domain.model.GameConfig
 import com.example.vita.domain.model.GameResult
 import com.example.vita.domain.repository.AuthRepository
@@ -28,22 +29,19 @@ class GameViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
-    // Evento de un solo disparo para que la Screen lance el Intent
     private val _navegarAJuego = MutableSharedFlow<String>()
     val navegarAJuego: SharedFlow<String> = _navegarAJuego.asSharedFlow()
 
-    // Registro del juego activo para identificarlo después
     private var juegoActual: String = ""
 
     fun solicitarAbrirJuego(packageName: String = "com.example.atrapasalud") {
         viewModelScope.launch {
-            juegoActual = packageName  // Guardar qué juego se abrió
+            juegoActual = packageName
             _uiState.update { it.copy(juegoActivo = true, mensajeResultado = null) }
             _navegarAJuego.emit(packageName)
         }
     }
 
-    // Llamado por la Screen cuando el usuario regresa del juego
     fun onRegresarDeJuego(resultado: String?) {
         val uid = authRepository.getCurrentUserId() ?: run {
             android.util.Log.e("GameViewModel", "❌ No hay usuario autenticado")
@@ -56,19 +54,24 @@ class GameViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Limpiar resultado después de procesarlo
-                val resultadoFinal = resultado ?: run {
-                    android.util.Log.w("GameViewModel", "⚠️ Resultado es NULL - no se procesará nada")
-                    _uiState.update { it.copy(juegoActivo = false) }
-                    return@launch
-                }
+                val resultadoFinal = resultado
+                    ?: GameResultBuffer.ultimoResultado.also {
+                        if (it != null) {
+                            GameResultBuffer.ultimoResultado = null
+                            android.util.Log.d("GameViewModel", "📦 Recuperado del GameResultBuffer: '$it'")
+                        }
+                    }
+                    ?: run {
+                        android.util.Log.w("GameViewModel", "⚠️ Resultado es NULL - no se procesará nada")
+                        _uiState.update { it.copy(juegoActivo = false) }
+                        return@launch
+                    }
 
                 android.util.Log.d("GameViewModel", "[4] Resultado final: '$resultadoFinal'")
 
-                val xpGanada = if (resultadoFinal == "GANASTE") GameConfig.XP_MINIJUEGO_GODOT else 0
+                val xpGanada = if (resultadoFinal.equals("GANASTE", ignoreCase = true)) GameConfig.XP_MINIJUEGO_GODOT else 0
                 android.util.Log.d("GameViewModel", "[5] XP a sumar: $xpGanada")
 
-                // Determinar nombre del juego según el package
                 val nombreJuego = when (juegoActual) {
                     "com.example.atrapasalud" -> "AtrapaSalud"
                     "com.example.velocidad" -> "Velocidad"
@@ -100,7 +103,7 @@ class GameViewModel @Inject constructor(
 
                 android.util.Log.d("GameViewModel", "✅ Proceso completado exitosamente")
             } catch (e: Exception) {
-                android.util.Log.e("GameViewModel", "❌ Error:', e.message", e)
+                android.util.Log.e("GameViewModel", "❌ Error: ${e.message}", e)
                 _uiState.update { it.copy(
                     juegoActivo = false,
                     error       = e.message

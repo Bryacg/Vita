@@ -4,9 +4,9 @@ package com.example.vita.domain.model
  * Logros o recompensas desbloqueadas por el usuario.
  */
 data class Achievement(
-    val id: Long,
+    val id: Long = 0,
     val userId: String,
     val name: String,
     val description: String,
-    val unlocked: Boolean
+    val unlocked: Boolean = false
 )
