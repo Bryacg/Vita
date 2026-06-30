@@ -82,7 +82,8 @@ fun GameCard(
         tonalElevation = if (enabled) 3.dp else 1.dp
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(
+
+        Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -194,7 +195,11 @@ fun CardGame(
     ElevatedCard(
         modifier = Modifier
             .padding(horizontal = 16.dp)
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                RoundedCornerShape(16.dp)
+            ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
     ) {

@@ -1,19 +1,29 @@
 package com.example.vita.ui.screens.Game
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,61 +31,95 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.io.File
+import com.example.vita.ui.components.GameCard
 import com.example.vita.ui.components.game.GameHeroHeader
+import java.io.File
 
 @Composable
 fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // ── Launcher con DEBUG y reintentos ───────────────────────────────────
+    // ── Receptor de Broadcast — escucha el resultado que envía Godot ──────
+    // Godot hace: activity.sendBroadcast(Intent("com.example.vita.GAME_RESULT")
+    //             .putExtra("game_result", "GANASTE"/"PERDISTE"))
+    // y luego activity.finish(). Este receiver captura ese mensaje incluso
+    // si la Activity de Godot ya se cerró antes de que termine el "launch".
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                val resultado = intent?.getStringExtra("game_result")
+                android.util.Log.d("GameLauncher", "📡 Broadcast recibido: '$resultado'")
+                viewModel.onRegresarDeJuego(resultado)
+            }
+        }
+
+        val filter = IntentFilter("com.example.vita.GAME_RESULT")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, filter)
+        }
+
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+
+    // ── Launcher con DEBUG y reintentos (fallback por archivo) ────────────
     val juegoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { _ ->
+        // El broadcast normalmente ya habrá actualizado el estado para este punto,
+        // ya que Godot envía el broadcast ANTES de finish(). Este bloque queda
+        // como fallback únicamente si el broadcast no llegó (por ejemplo, en
+        // versiones de Godot que aún escriben a archivo).
+        if (!uiState.juegoActivo) {
+            // El broadcast ya procesó el resultado → no hacer nada más.
+            return@rememberLauncherForActivityResult
+        }
+
         val archivo = File(context.getExternalFilesDir(null), "game_result.txt")
         android.util.Log.d("GameLauncher", "🎮 Intent regresó - Buscando archivo en: ${archivo.absolutePath}")
-        
+
         val resultado = if (archivo.exists()) {
             try {
                 val texto = archivo.readText().trim()
                 android.util.Log.d("GameLauncher", "✅ Archivo encontrado. Contenido: '$texto'")
                 archivo.delete()
-                android.util.Log.d("GameLauncher", "🗑️ Archivo eliminado")
                 texto.ifBlank { null }
             } catch (e: Exception) {
                 android.util.Log.e("GameLauncher", "❌ Error leyendo archivo: ${e.message}", e)
                 null
             }
         } else {
-            android.util.Log.w("GameLauncher", "⚠️ Archivo NO encontrado en: ${archivo.absolutePath}")
-            android.util.Log.w("GameLauncher", "📂 Contenido del directorio:")
-            val dir = context.getExternalFilesDir(null)
-            dir?.listFiles()?.forEach { file ->
-                android.util.Log.w("GameLauncher", "  - ${file.name} (${file.length()} bytes)")
-            } ?: android.util.Log.w("GameLauncher", "  (Directorio no existe)")
+            android.util.Log.w("GameLauncher", "⚠️ Archivo NO encontrado, ni llegó broadcast.")
             null
         }
         viewModel.onRegresarDeJuego(resultado)
     }
-    
+
     LaunchedEffect(Unit) {
         viewModel.navegarAJuego.collect { packageName ->
             android.util.Log.d("GameLauncher", "🎮 Intentando lanzar: $packageName")
@@ -140,7 +184,6 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Sección de juegos
         Text(
             text = "Elige tu misión",
             style = MaterialTheme.typography.titleMedium,
@@ -179,7 +222,6 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
             modifier = Modifier.padding(horizontal = 20.dp)
         )
 
-        // Error silencioso
         uiState.error?.let { error ->
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -193,12 +235,6 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
         Spacer(modifier = Modifier.height(100.dp))
     }
 }
-
-// ── Cabecera hero ─────────────────────────────────────────────────────────────
-
-
-
-
 
 // ── Banner de resultado ───────────────────────────────────────────────────────
 
@@ -231,158 +267,5 @@ private fun ResultBanner(mensaje: String, modifier: Modifier = Modifier) {
             fontWeight = FontWeight.SemiBold,
             color = colorTexto
         )
-    }
-}
-
-// ── Card de juego ─────────────────────────────────────────────────────────────
-
-@Composable
-fun GameCard(
-    titulo: String,
-    descripcion: String,
-    xpRecompensa: Int,
-    dificultad: String,
-    icono: ImageVector,
-    colorAcento: Color,
-    colorFondo: Color,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed && enabled) 0.97f else 1f,
-        animationSpec = tween(120),
-        label = "scale"
-    )
-
-    val colorBorde = colorAcento.copy(alpha = if (enabled) 0.35f else 0.15f)
-    val colorIconoBg = colorFondo
-    val colorIcono = if (enabled) colorAcento else colorAcento.copy(alpha = 0.4f)
-
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .border(1.dp, colorBorde, RoundedCornerShape(16.dp))
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = if (enabled) 3.dp else 1.dp
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-
-            // Fila superior: icono + título + dificultad
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Ícono con fondo de color
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(colorIconoBg),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icono,
-                        contentDescription = null,
-                        tint = colorIcono,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(14.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = titulo,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    // Badge de dificultad
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(colorAcento.copy(alpha = if (enabled) 0.12f else 0.06f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = dificultad,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (enabled) colorAcento else colorAcento.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-
-                // XP recompensa
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "+$xpRecompensa",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (enabled) Color(0xFFBA7517) else Color(0xFFBA7517).copy(0.4f)
-                    )
-                    Text(
-                        text = "XP",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        textAlign = TextAlign.End
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Descripción
-            Text(
-                text = descripcion,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                lineHeight = 20.sp
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Botón jugar
-            Button(
-                onClick = onClick,
-                enabled = enabled,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colorAcento,
-                    contentColor = Color.White,
-                    disabledContainerColor = colorAcento.copy(alpha = 0.3f),
-                    disabledContentColor = Color.White.copy(alpha = 0.5f)
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (enabled) "Jugar ahora" else "Juego activo...",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
-                )
-            }
-        }
     }
 }
