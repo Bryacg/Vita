@@ -76,7 +76,9 @@ fun GameScreen(viewModel: GameViewModel = hiltViewModel()) {
         val filter = IntentFilter("com.example.vita.GAME_RESULT")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            // El juego Godot es otra app (otro UID), así que el receiver
+            // debe estar EXPORTADO para poder recibir su broadcast.
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             context.registerReceiver(receiver, filter)
