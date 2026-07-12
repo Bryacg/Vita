@@ -57,13 +57,11 @@ func _terminar_juego(gano: bool):
 	var resultado_export = "GANASTE" if gano else "PERDISTE"
 	var resultado_ui = "gano" if gano else "perdio"
 
-	# Enviamos el resultado por Broadcast (Inmune a bloqueos de sistema)
 	var enviado = _enviar_por_broadcast(resultado_export)
 
 	if enviado:
 		return
 
-	# FALLBACK: Solo si estás probando en PC
 	await get_tree().create_timer(0.5).timeout
 	var final_scene = load("res://Scene/pantallafinal.tscn")
 	get_tree().change_scene_to_packed(final_scene)
@@ -76,25 +74,29 @@ func _enviar_por_broadcast(resultado: String) -> bool:
 	if OS.get_name() != "Android":
 		return false
 
-	var godot_singleton = Engine.get_singleton("Godot")
-	if godot_singleton:
-		var activity = godot_singleton.get_activity()
-		if activity:
-			activity.runOnUiThread(func():
-				var java_wrapper = Engine.get_singleton("JavaClassWrapper")
-				var IntentClass = java_wrapper.wrap("android.content.Intent")
+	try:
+		var godot = Engine.get_singleton("Godot")
+		if not godot:
+			print("❌ ERROR: No se obtuvo Godot singleton")
+			return false
 
-				# Creamos un Intent con una acción única para tu app principal
-				var broadcast_intent = IntentClass.new("com.example.vita.GAME_RESULT")
-				broadcast_intent.putExtra("game_result", resultado)
+		var activity = godot.get_activity()
+		if not activity:
+			print("❌ ERROR: No se obtuvo Activity")
+			return false
 
-				# Enviamos la transmisión y cerramos el juego
-				activity.sendBroadcast(broadcast_intent)
-				activity.finish()
-				print("¡Broadcast enviado con éxito desde Godot!: ", resultado)
-			)
-			return true
-	return false
+		var jni = JavaClassWrapper.new()
+		var intent_class = jni.wrap("android.content.Intent")
+		var broadcast_intent = intent_class.new("com.example.vita.GAME_RESULT")
+		broadcast_intent.putExtra("game_result", resultado)
+
+		activity.sendBroadcast(broadcast_intent)
+		print("📡 Broadcast enviado correctamente: ", resultado)
+		return true
+
+	except:
+		print("❌ ERROR enviando broadcast: ", resultado)
+		return false
 
 func _actualizar_pantalla():
 	lpuntos.text = str(puntos_actuales)
