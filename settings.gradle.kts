@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Vita"
 include(":app")
+include(":godotlib")
