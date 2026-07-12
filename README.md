@@ -297,78 +297,6 @@ Utilizando **Vico Charts** para representar:
 
 ---
 
-## 🧪 Testing
-
-```bash
-# Ejecutar pruebas unitarias
-./gradlew test
-
-# Ejecutar pruebas instrumentadas
-./gradlew connectedAndroidTest
-
-# Generar reporte de cobertura
-./gradlew jacocoTestReport
-```
-
----
-
-## ❓ Preguntas Frecuentes (FAQ)
-
-### **P: ¿Qué necesito para compilar la app?**
-**R:** JDK 17+, Android Studio Hedgehog+ y una cuenta Firebase.
-
-### **P: ¿Cómo obtengo las API keys de Gemini?**
-**R:** Accede a [Google AI Studio](https://aistudio.google.com/), crea un proyecto y genera tus API keys en `local.properties`.
-
-### **P: ¿Puedo usar la app sin Firebase?**
-**R:** No, Firebase es obligatorio para autenticación y sincronización de datos en Firestore.
-
-### **P: ¿Qué versión mínima de Android soporta?**
-**R:** API 24 (Android 7.0) o superior.
-
-### **P: ¿Los minijuegos vienen integrados?**
-**R:** No, son apps separadas que se instalan aparte. Los `.apk` se lanzan desde VitaGame.
-
----
-
-## 📈 Roadmap
-
-### **Próximas Funcionalidades**
-- [ ] Dashboard de estadísticas avanzadas
-- [ ] Integración con Google Fit / Health Connect
-- [ ] Sistema de logros con insignias visuales
-- [ ] Leaderboard con amigos
-- [ ] Modo oscuro completo
-- [ ] Widget de home screen
-- [ ] Notificaciones push personalizadas
-- [ ] Exportar datos a CSV/PDF
-
-### **Mejoras Técnicas**
-- [ ] Migrar a Compose Multiplatform
-- [ ] Implementar Offline-first con WorkManager
-- [ ] Añadir tests de UI con Compose Testing
-- [ ] CI/CD con GitHub Actions
-
----
-
-## 🤝 Contribuir
-
-¡Las contribuciones son bienvenidas! Si quieres mejorar VitaGame:
-
-1. **Fork** el repositorio
-2. Crea una **rama** (`git checkout -b feature/nueva-funcionalidad`)
-3. **Commit** tus cambios (`git commit -m 'Add: nueva funcionalidad'`)
-4. **Push** a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Abre un **Pull Request**
-
-### **Guías de Contribución**
-- Sigue la guía de estilo de Kotlin oficial
-- Asegúrate de que el código pase `ktlintFormat`
-- Añade tests para nuevas funcionalidades
-- Actualiza la documentación si es necesario
-
----
-
 ## 📄 Licencia
 
 ```
@@ -386,26 +314,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
-
----
-
-## 🙏 Agradecimientos
-
-- **Google** - Por Firebase, Gemini y Jetpack Compose
-- **JetBrains** - Por Kotlin y las herramientas de desarrollo
-- **Godot Engine** - Por el motor de juegos de código abierto
-- **Patrick Michalik** - Por la librería Vico Charts
-- **Comunidad Android** - Por las mejores prácticas y librerías open source
-
----
-
-## 📬 Contacto
-
-¿Preguntas o sugerencias? ¡Contáctanos!
-
-- **Issues**: [GitHub Issues](https://github.com/tu-usuario/vitagame/issues)
-- **Email**: contacto@vitagame.app
-- **Discord**: [Únete a nuestro servidor](https://discord.gg/vitagame)
 
 ---
 
