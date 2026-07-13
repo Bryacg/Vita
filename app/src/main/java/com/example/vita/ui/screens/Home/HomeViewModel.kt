@@ -9,7 +9,8 @@ import com.example.vita.domain.model.NutritionResult
 import com.example.vita.domain.model.Progress
 import com.example.vita.domain.model.User
 import com.example.vita.domain.repository.AuthRepository
-import com.example.vita.domain.usecase.auth.ObtenerUsuarioUseCase
+import com.example.vita.domain.repository.ProgresoRepository
+import com.example.vita.domain.repository.UserRepository
 import com.example.vita.domain.usecase.comida.EliminarComidaUseCase
 import com.example.vita.domain.usecase.comida.ObtenerComidasHoyUseCase
 import com.example.vita.domain.usecase.comida.RegistrarComidaConXpUseCase
@@ -25,11 +26,12 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val obtenerUsuarioUseCase: ObtenerUsuarioUseCase,
+    private val userRepository: UserRepository,
+    private val progresoRepository: ProgresoRepository,
     private val obtenerOCrearProgresoUseCase: ObtenerOCrearProgresoUseCase,
     private val obtenerRetosActivosUseCase: ObtenerRetosActivosUseCase,
     private val obtenerComidasHoyUseCase: ObtenerComidasHoyUseCase,
-    private val registrarComidaConXpUseCase: RegistrarComidaConXpUseCase, // nuevo
+    private val registrarComidaConXpUseCase: RegistrarComidaConXpUseCase,
     private val eliminarComidaUseCase: EliminarComidaUseCase,
     private val actualizarProgresoRetoUseCase: ActualizarProgresoRetoUseCase,
     private val agregarXpUseCase: AgregarXpUseCase
@@ -40,15 +42,49 @@ class HomeViewModel @Inject constructor(
 
     private val userId get() = authRepository.getCurrentUserId()
 
-    init { cargarDatos() }
+    init {
+        val uid = userId
+        if (uid != null) {
+            viewModelScope.launch { obtenerOCrearProgresoUseCase(uid) }
+            observarUsuarioYProgresoReactivo(uid)
+        }
+        cargarDatosEstaticos(mostrarCarga = true)
+    }
 
-    fun cargarDatos(mostrarCarga: Boolean = true) {
+    /**
+     * Observa user y progress como Flow (mismo patrón que ProgressViewModel).
+     * Así, cualquier cambio de XP/nivel/racha —venga de Retos, Comida o el
+     * minijuego de Godot— se refleja automáticamente en Home sin necesidad
+     * de recargar la pantalla ni reabrir la app.
+     */
+    private fun observarUsuarioYProgresoReactivo(uid: String) {
+        viewModelScope.launch {
+            combine(
+                userRepository.getUserStream(uid),
+                progresoRepository.getProgresoStream(uid)
+            ) { user, progress -> Pair(user, progress) }
+                .collectLatest { (user, progress) ->
+                    _uiState.update {
+                        it.copy(
+                            user = user,
+                            progress = progress ?: it.progress,
+                            isLoading = false
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Carga los datos que aún no son reactivos por Flow (comidas de hoy,
+     * retos activos). Se puede volver a llamar manualmente tras acciones
+     * puntuales (registrar comida, actualizar reto).
+     */
+    fun cargarDatosEstaticos(mostrarCarga: Boolean = false) {
         val uid = userId ?: return
         viewModelScope.launch {
             if (mostrarCarga) _uiState.update { it.copy(isLoading = true) }
             try {
-                val user          = obtenerUsuarioUseCase(uid)
-                val progress      = obtenerOCrearProgresoUseCase(uid)
                 val comidasHoy    = obtenerComidasHoyUseCase(uid)
                 val totalKcal     = comidasHoy.sumOf { it.calories }
                 val promedioSalud = if (comidasHoy.isNotEmpty())
@@ -61,8 +97,6 @@ class HomeViewModel @Inject constructor(
 
                 _uiState.update {
                     it.copy(
-                        user                = user,
-                        progress            = progress,
                         retoDestacado       = retoPrioritario,
                         comidasHoy          = comidasHoy,
                         totalCaloriesHoy    = totalKcal,
@@ -77,21 +111,18 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Registra la comida, clasifica automáticamente la calidad nutricional,
-     * suma el XP al progreso global y guarda el resultado para mostrar feedback.
-     */
+    // Se conserva por compatibilidad con las llamadas existentes en el resto del ViewModel.
+    fun cargarDatos(mostrarCarga: Boolean = true) {
+        cargarDatosEstaticos(mostrarCarga)
+    }
+
     fun registrarNuevaComida(nombre: String, kcal: Int) {
         val uid = userId ?: return
         viewModelScope.launch {
             try {
-                // Clasificación + guardado + XP en un solo UseCase
                 val resultado = registrarComidaConXpUseCase(uid, nombre, kcal)
-
-                // Actualiza el feedback visible en la UI y recarga sin spinner
                 _uiState.update { it.copy(ultimaNutricion = resultado) }
-                cargarDatos(mostrarCarga = false)
-
+                cargarDatosEstaticos(mostrarCarga = false)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Error al guardar: ${e.message}") }
             }
@@ -106,7 +137,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 eliminarComidaUseCase(mealId)
-                cargarDatos(mostrarCarga = false)
+                cargarDatosEstaticos(mostrarCarga = false)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Error al eliminar: ${e.message}") }
             }
@@ -117,7 +148,7 @@ class HomeViewModel @Inject constructor(
         val uid = userId ?: return
         viewModelScope.launch {
             agregarXpUseCase(uid, GameConfig.XP_MINIJUEGO_GODOT)
-            cargarDatos(mostrarCarga = false)
+            cargarDatosEstaticos(mostrarCarga = false)
         }
     }
 
@@ -131,7 +162,7 @@ class HomeViewModel @Inject constructor(
                 status       = if (estaCompletado) "COMPLETED" else "PROGRESSO"
             ))
             if (estaCompletado) agregarXpUseCase(uid, GameConfig.XP_RETO_DIARIO)
-            cargarDatos(mostrarCarga = false)
+            cargarDatosEstaticos(mostrarCarga = false)
         }
     }
 
@@ -142,7 +173,7 @@ class HomeViewModel @Inject constructor(
                 reto.copy(currentValue = reto.targetValue, status = "COMPLETED")
             )
             agregarXpUseCase(uid, GameConfig.XP_RETO_DIARIO)
-            cargarDatos(mostrarCarga = false)
+            cargarDatosEstaticos(mostrarCarga = false)
         }
     }
 }
@@ -156,5 +187,5 @@ data class HomeUiState(
     val saludNutricionalHoy: Int = 0,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val ultimaNutricion: NutritionResult? = null   // feedback al usuario tras guardar
+    val ultimaNutricion: NutritionResult? = null
 )
